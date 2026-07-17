@@ -194,6 +194,26 @@ assumes the day from the due date rather than asking again, which keeps the scre
 day picker is on the list for later. This is the piece that unlocks the next one: now that a task can
 belong to a project, the stack can finally group itself by project.
 
+### milestone: the stack organises itself (2026-07-17)
+
+This is the payoff of the last two milestones, and the moment the app's core idea is finally whole.
+The stack used to be one long flat list. Now it groups itself by project, in the order you ranked
+those projects, with a catch-all "inbox" always sitting at the bottom for anything you have not filed
+yet. Each group wears its name and a short red underline that fades to nothing, the app's one small
+flourish for a section heading. A project with nothing in it shows no heading at all, so the screen
+stays as quiet as the work allows. And if you ever archive a project, its tasks are not lost, they
+simply fall back into the inbox.
+
+The grouping logic is deliberately kept as a small, pure piece of arithmetic, separated from the
+screen, so it could be covered by fast tests that do not need a phone: projects come out in rank
+order, the inbox lands last, empty groups disappear, orphaned tasks go to the inbox, and finished
+tasks still settle to the bottom of their own group. All of it is wired so that the instant you give
+a task a project on its detail screen, it hops into the right group on the stack.
+
+With this, the spine the whole plan set out to prove is complete: you can capture a thought, file it
+under a ranked project, let the app sort it, and tick it off. Everything from here, reminders,
+backup, settings, and later the intelligence, hangs off this working skeleton.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

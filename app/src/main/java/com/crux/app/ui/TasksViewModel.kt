@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.crux.app.data.ProjectRepository
 import com.crux.app.data.TaskRepository
+import com.crux.app.domain.StackGroup
+import com.crux.app.domain.groupStack
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
 import com.crux.app.ui.theme.Motion
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -25,16 +29,21 @@ import kotlinx.coroutines.launch
  * Holds home's top 3, the full stack, capture, and complete/undo with a one-shot undo signal
  * that the app-level snackbar listens for.
  */
-class TasksViewModel(private val tasks: TaskRepository) : ViewModel() {
+class TasksViewModel(
+    private val tasks: TaskRepository,
+    private val projects: ProjectRepository,
+) : ViewModel() {
 
     val top3: StateFlow<List<Task>> =
         tasks.observeOpen()
             .map { it.take(3) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val stack: StateFlow<List<Task>> =
-        tasks.observeStack()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** The stack, grouped by project rank with the inbox last (empty groups omitted). */
+    val groupedStack: StateFlow<List<StackGroup>> =
+        combine(tasks.observeStack(), projects.observeActive()) { taskList, projectList ->
+            groupStack(taskList, projectList, Copy.STACK_INBOX)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val undoChannel = Channel<Unit>(Channel.CONFLATED)
     val undoEvents = undoChannel.receiveAsFlow()
@@ -90,8 +99,8 @@ class TasksViewModel(private val tasks: TaskRepository) : ViewModel() {
     }
 
     companion object {
-        fun factory(tasks: TaskRepository) = viewModelFactory {
-            initializer { TasksViewModel(tasks) }
+        fun factory(tasks: TaskRepository, projects: ProjectRepository) = viewModelFactory {
+            initializer { TasksViewModel(tasks, projects) }
         }
     }
 }

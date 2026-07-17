@@ -24,6 +24,7 @@ object Copy {
     // empty states (copy bank, verbatim)
     const val EMPTY_HOME = "clear trail. nothing overdue."
     const val EMPTY_STACK = "nothing here yet. the omnibar is on home."
+    const val STACK_INBOX = "inbox" // the catch-all group header, always last (data-model.md)
     const val EMPTY_REVIEW = "no questions today."
     // projects strings: proposed in phase 1 (the copy bank had no projects entries).
     // Logged in DECISIONS.log, pending owner approval. Chisel voice: lowercase, calm, no exclaims.

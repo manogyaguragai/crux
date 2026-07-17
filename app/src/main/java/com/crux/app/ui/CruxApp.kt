@@ -87,7 +87,8 @@ fun CruxApp() {
     val nav = rememberNavController()
     val context = LocalContext.current
     val container = (context.applicationContext as CruxApplication).container
-    val vm: TasksViewModel = viewModel(factory = TasksViewModel.factory(container.taskRepository))
+    val vm: TasksViewModel =
+        viewModel(factory = TasksViewModel.factory(container.taskRepository, container.projectRepository))
     val projectsVm: ProjectsViewModel =
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val snackbarHostState = remember { SnackbarHostState() }
