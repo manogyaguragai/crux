@@ -73,6 +73,7 @@ import kotlin.math.abs
 fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () -> Unit) {
     val deep by vm.deepMode.collectAsStateWithLifecycle()
     val fontScale by vm.fontScale.collectAsStateWithLifecycle()
+    val homeCount by vm.homeCount.collectAsStateWithLifecycle()
     val notif by vm.notifications.collectAsStateWithLifecycle()
     val archived by vm.archivedCount.collectAsStateWithLifecycle()
     var confirmingReset by remember { mutableStateOf(false) }

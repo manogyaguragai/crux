@@ -32,6 +32,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val fontScale: StateFlow<Float> =
         settings.fontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
 
+    val homeCount: StateFlow<Int> =
+        settings.homeCount.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsRepository.DEFAULT_HOME_COUNT,
+        )
+
     val notifications: StateFlow<NotificationPrefs> =
         settings.notifications.stateIn(
             viewModelScope,
@@ -42,6 +47,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setDeepMode(on: Boolean) = launch { settings.setDeepMode(on) }
 
     fun setFontScale(scale: Float) = launch { settings.setFontScale(scale) }
+
+    fun setHomeCount(n: Int) = launch { settings.setHomeCount(n) }
 
     fun setMorning(on: Boolean, minutes: Int) = launch {
         settings.setMorning(on, minutes)

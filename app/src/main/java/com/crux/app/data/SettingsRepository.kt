@@ -27,9 +27,15 @@ class SettingsRepository(private val context: Context) {
         val DUE_ON = booleanPreferencesKey("notif_due_on")
         val WRAP_ON = booleanPreferencesKey("notif_wrap_on")
         val WRAP_MIN = intPreferencesKey("notif_wrap_minutes")
+        val HOME_COUNT = intPreferencesKey("home_count")
     }
 
     val deepMode: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.DEEP] ?: false }
+
+    /** How many open tasks home shows (owner-configurable, 1..10; default 3). Clamped on read + write. */
+    val homeCount: Flow<Int> = context.settingsDataStore.data.map {
+        (it[Keys.HOME_COUNT] ?: DEFAULT_HOME_COUNT).coerceIn(HOME_COUNT_MIN, HOME_COUNT_MAX)
+    }
 
     /** Text-size multiplier applied on top of the system font scale. 1.0 = the shipped size. */
     val fontScale: Flow<Float> = context.settingsDataStore.data.map { it[Keys.FONT_SCALE] ?: 1f }
@@ -40,6 +46,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDeepMode(on: Boolean) {
         context.settingsDataStore.edit { it[Keys.DEEP] = on }
+    }
+
+    suspend fun setHomeCount(n: Int) {
+        context.settingsDataStore.edit { it[Keys.HOME_COUNT] = n.coerceIn(HOME_COUNT_MIN, HOME_COUNT_MAX) }
     }
 
     suspend fun setFontScale(scale: Float) {
@@ -74,6 +84,9 @@ class SettingsRepository(private val context: Context) {
     companion object {
         const val DEFAULT_MORNING_MIN = 8 * 60   // 08:00
         const val DEFAULT_WRAP_MIN = 21 * 60      // 21:00
+        const val DEFAULT_HOME_COUNT = 3          // the original hardcoded top-3
+        const val HOME_COUNT_MIN = 1
+        const val HOME_COUNT_MAX = 10
     }
 }
 

@@ -46,6 +46,8 @@ object Copy {
     const val SETTINGS_DEEP = "deep"
     const val SETTINGS_DEEP_SUB = "true-black background, easier on oled"
     const val SETTINGS_TEXT_SIZE = "text size"
+    const val SETTINGS_HOME_COUNT = "tasks on home"
+    const val SETTINGS_HOME_COUNT_SUB = "how many open tasks the home screen shows"
     const val SETTINGS_DATA = "data"
     const val SETTINGS_RESET = "reset everything"
     const val SETTINGS_RESET_SUB = "erase all tasks, projects, and settings"

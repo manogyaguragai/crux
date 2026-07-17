@@ -76,6 +76,13 @@ object CruxIcons {
         }.build()
     }
 
+    /** minus: the stepper's decrement (mirrors Add). viewBox 24. */
+    val Minus: ImageVector by lazy {
+        ImageVector.Builder("minus", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M5 12h14")
+        }.build()
+    }
+
     /** re-rank up: a chevron. used by the projects edit mode. viewBox 24. */
     val ChevronUp: ImageVector by lazy {
         ImageVector.Builder("chevron_up", 24.dp, 24.dp, 24f, 24f).apply {
