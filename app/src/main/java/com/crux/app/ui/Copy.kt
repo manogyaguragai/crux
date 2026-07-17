@@ -17,6 +17,10 @@ object Copy {
     // in phase 1 everything typed becomes a title-only task.
     const val OMNIBAR_PLACEHOLDER = "add to the stack, or ask it anything…"
 
+    // undo snackbar (copy bank: "done. undo", where undo is the action)
+    const val SNACKBAR_DONE = "done."
+    const val SNACKBAR_UNDO = "undo"
+
     // empty states (copy bank, verbatim)
     const val EMPTY_HOME = "clear trail. nothing overdue."
     const val EMPTY_STACK = "nothing here yet. the omnibar is on home."

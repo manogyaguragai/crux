@@ -23,24 +23,34 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.crux.app.CruxApplication
 import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.screens.home.HomeScreen
+import com.crux.app.ui.screens.stack.StackScreen
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
@@ -48,6 +58,8 @@ import com.crux.app.ui.theme.Garnet
 import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
+import com.crux.app.ui.theme.Overlay
+import kotlinx.coroutines.withTimeoutOrNull
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Void
 
@@ -67,9 +79,40 @@ private enum class CruxTab(
 @Composable
 fun CruxApp() {
     val nav = rememberNavController()
+    val context = LocalContext.current
+    val container = (context.applicationContext as CruxApplication).container
+    val vm: TasksViewModel = viewModel(factory = TasksViewModel.factory(container.taskRepository))
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // the 5 s undo window after a completion (copy bank: "done. undo")
+    LaunchedEffect(vm) {
+        vm.undoEvents.collect {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = withTimeoutOrNull(5_000L) {
+                snackbarHostState.showSnackbar(
+                    message = Copy.SNACKBAR_DONE,
+                    actionLabel = Copy.SNACKBAR_UNDO,
+                    duration = SnackbarDuration.Indefinite,
+                )
+            }
+            if (result == SnackbarResult.ActionPerformed) vm.undoLast()
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = { CruxTabBar(nav) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Overlay,
+                    contentColor = InkHi,
+                    actionColor = Ember,
+                    shape = RoundedCornerShape(Dimens.RadiusCard),
+                )
+            }
+        },
     ) { innerPadding ->
         NavHost(
             navController = nav,
@@ -78,7 +121,11 @@ fun CruxApp() {
         ) {
             CruxTab.entries.forEach { tab ->
                 composable(tab.route) {
-                    if (tab == CruxTab.Home) HomeScreen() else EmptyTabScreen(tab)
+                    when (tab) {
+                        CruxTab.Home -> HomeScreen(vm)
+                        CruxTab.Stack -> StackScreen(vm)
+                        else -> EmptyTabScreen(tab)
+                    }
                 }
             }
         }

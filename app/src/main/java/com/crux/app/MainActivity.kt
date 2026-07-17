@@ -4,8 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import com.crux.app.ui.CruxApp
 import com.crux.app.ui.theme.CruxTheme
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,6 +19,16 @@ class MainActivity : ComponentActivity() {
             CruxTheme {
                 CruxApp()
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The sweep the user actually sees: yesterday's done rows clear on app open
+        // (data-model.md). The scheduled WorkManager job arrives with the notifications slice.
+        val container = (application as CruxApplication).container
+        lifecycleScope.launch {
+            container.taskRepository.sweepDoneBeforeToday(ZoneId.systemDefault(), Instant.now())
         }
     }
 }

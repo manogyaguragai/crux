@@ -18,4 +18,7 @@ interface CompletionLogDao {
     /** Undo a completion within the 5 s window reverses the log row too. */
     @Delete
     suspend fun delete(log: CompletionLog)
+
+    @Query("DELETE FROM completion_log WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

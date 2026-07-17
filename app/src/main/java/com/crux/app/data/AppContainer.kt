@@ -12,5 +12,7 @@ class AppContainer(context: Context) {
 
     val database: CruxDatabase by lazy { CruxDatabase.build(appContext) }
 
-    val taskRepository: TaskRepository by lazy { TaskRepository(database.taskDao()) }
+    val taskRepository: TaskRepository by lazy {
+        TaskRepository(database.taskDao(), database.completionLogDao())
+    }
 }

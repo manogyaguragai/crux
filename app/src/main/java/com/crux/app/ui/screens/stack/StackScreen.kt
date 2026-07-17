@@ -1,4 +1,4 @@
-package com.crux.app.ui.screens.home
+package com.crux.app.ui.screens.stack
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,20 +19,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
-import com.crux.app.ui.components.Omnibar
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Void
 
 /**
- * Home: the omnibar riding low, the top 3 open tasks above it (data-model.md).
- * The nudge count and the meta line arrive in later phase 1 slices.
+ * The stack: every open and done task. Phase 1 is a flat list in master-sort order (done rows
+ * sink faded to the bottom). Grouping by project rank arrives with the projects slice.
  */
 @Composable
-fun HomeScreen(vm: TasksViewModel) {
-    val top by vm.top3.collectAsStateWithLifecycle()
+fun StackScreen(vm: TasksViewModel) {
+    val tasks by vm.stack.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -38,24 +40,26 @@ fun HomeScreen(vm: TasksViewModel) {
             .background(Void)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (top.isEmpty()) {
+        Spacer(Modifier.height(Dimens.ScreenMargin))
+        Text(text = Copy.TAB_STACK, style = CruxType.Display, color = InkHi)
+        Spacer(Modifier.height(Dimens.Unit * 2))
+
+        if (tasks.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
                 Text(
-                    text = Copy.EMPTY_HOME,
+                    text = Copy.EMPTY_STACK,
                     style = CruxType.Passage,
                     color = InkMid,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center),
                 )
-            } else {
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
-                    top.forEach { task ->
-                        TaskRow(task = task, onToggle = { vm.complete(task) })
-                    }
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                items(items = tasks, key = { it.id }) { task ->
+                    TaskRow(task = task, onToggle = { vm.complete(task) })
                 }
             }
         }
-        Omnibar(onCapture = vm::capture, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(Dimens.GroupGap))
     }
 }

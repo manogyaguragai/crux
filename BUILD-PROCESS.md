@@ -117,6 +117,16 @@ the next thought goes straight in. Under the hood this added the first repositor
 boundary between the screen and the database) and the first view-model (which holds what the screen
 shows). Still to come in phase 1: projects, the full task list, checking things off, and reminders.
 
+### milestone: the usable list (2026-07-17)
+
+crux became usable as a task list. The stack tab now shows everything you have added, open and
+done. Each task has the hold (the pebble checkbox): tap it and the task fills, its title strikes
+through and fades, and it sinks to the bottom, with a five second "undo" if you tapped by mistake.
+Yesterday's finished tasks clear the next time you open the app, so each morning starts on a clean
+trail. This was the first real test loop: add on home, see it on the stack, check it off. Still to
+come in phase 1: ranked projects (so the list groups), editing a task's details, reminders, backup,
+and settings.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.
