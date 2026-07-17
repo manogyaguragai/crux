@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,35 +100,42 @@ fun CruxApp() {
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = { CruxTabBar(nav) },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = Overlay,
-                    contentColor = InkHi,
-                    actionColor = Ember,
-                    shape = RoundedCornerShape(Dimens.RadiusCard),
-                )
-            }
-        },
-    ) { innerPadding ->
-        NavHost(
-            navController = nav,
-            startDestination = CruxTab.Home.route,
-            modifier = Modifier.padding(innerPadding),
-        ) {
-            CruxTab.entries.forEach { tab ->
-                composable(tab.route) {
-                    when (tab) {
-                        CruxTab.Home -> HomeScreen(vm)
-                        CruxTab.Stack -> StackScreen(vm)
-                        else -> EmptyTabScreen(tab)
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = { CruxTabBar(nav) },
+        ) { innerPadding ->
+            NavHost(
+                navController = nav,
+                startDestination = CruxTab.Home.route,
+                modifier = Modifier.padding(innerPadding),
+            ) {
+                CruxTab.entries.forEach { tab ->
+                    composable(tab.route) {
+                        when (tab) {
+                            CruxTab.Home -> HomeScreen(vm)
+                            CruxTab.Stack -> StackScreen(vm)
+                            else -> EmptyTabScreen(tab)
+                        }
                     }
                 }
             }
+        }
+        // the undo snackbar rides at the top so it never blocks the omnibar or capture
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = Dimens.ScreenMargin, vertical = Dimens.Unit * 2),
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = Overlay,
+                contentColor = InkHi,
+                actionColor = Ember,
+                shape = RoundedCornerShape(Dimens.RadiusCard),
+            )
         }
     }
 }
