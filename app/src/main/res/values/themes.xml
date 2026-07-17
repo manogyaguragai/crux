@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- framework dark theme, no action bar. compose owns everything past the window.
+         edge-to-edge is enabled programmatically in MainActivity; the dark window
+         background prevents a white flash on cold start. -->
+    <style name="Theme.Crux" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/crux_void</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

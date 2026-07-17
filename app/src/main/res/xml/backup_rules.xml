@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- crux backup is manual json export (SAF), phase 1. no auto cloud backup of the db yet. -->
+<full-backup-content />

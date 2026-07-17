@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- window background only, to kill the launch white-flash before compose draws.
+         all in-app color lives in ui/theme/Color.kt (the token file). -->
+    <color name="crux_void">#141110</color>
+</resources>

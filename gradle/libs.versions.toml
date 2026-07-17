@@ -1,0 +1,55 @@
+# Version catalog. Versions fetched live from Maven at Phase 0 setup (2026-07-17),
+# then locked here. Never hand-pick from memory; bump deliberately.
+# KSP is pinned to the Kotlin version (direct-mirror scheme): both must move together.
+
+[versions]
+agp = "8.13.2"                 # 8.13.2 max compileSdk is 36 = the current SDK ceiling; 9.x not needed
+kotlin = "2.3.10"              # KSP tops out here; Kotlin cannot lead KSP
+ksp = "2.3.10"                 # must equal kotlin
+coreKtx = "1.18.0"            # 1.19.0 requires compileSdk 37 (unpublished) + AGP 9.1; stay on the 36-gen
+activityCompose = "1.13.0"
+composeBom = "2026.06.01"
+navigationCompose = "2.9.8"
+room = "2.8.4"
+# --- staged for later phases; versions locked now, wired when their phase arrives ---
+lifecycle = "2.11.0"           # phase 1: viewmodels
+work = "2.11.2"                # phase 1: midnight sweep + digests
+datastore = "1.2.1"           # phase 1: settings; phase 3: keys
+serializationJson = "1.11.0"  # phase 1: json export/import
+# --- test ---
+junit = "4.13.2"
+androidxJunit = "1.3.0"
+espresso = "3.7.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+# --- staged for later phases ---
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
+# --- test ---
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# staged for phase 1 (json): kotlin-serialization
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

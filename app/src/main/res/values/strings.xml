@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- lowercase wordmark, per user-choices.md. the garnet period is drawn, not spelled. -->
+    <string name="app_name">crux</string>
+</resources>
