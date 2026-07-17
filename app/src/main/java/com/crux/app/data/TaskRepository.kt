@@ -1,6 +1,7 @@
 package com.crux.app.data
 
 import com.crux.app.data.dao.CompletionLogDao
+import com.crux.app.data.dao.ProjectDao
 import com.crux.app.data.dao.TaskDao
 import com.crux.app.domain.model.CompletionLog
 import com.crux.app.domain.model.ParsedBy
@@ -23,7 +24,11 @@ import java.time.ZoneId
 class TaskRepository(
     private val taskDao: TaskDao,
     private val completionLogDao: CompletionLogDao,
+    private val projectDao: ProjectDao,
 ) {
+
+    /** The permanent completion history, newest first (the total-history screen reads this). */
+    fun observeHistory(): Flow<List<CompletionLog>> = completionLogDao.observeAll()
 
     /** Open tasks in master-sort order (home's top 3 reads the head of this). */
     fun observeOpen(): Flow<List<Task>> =
@@ -63,11 +68,12 @@ class TaskRepository(
      */
     suspend fun complete(task: Task, now: Long): Long {
         taskDao.update(task.copy(status = TaskStatus.DONE, completedAt = now))
+        val projectName = task.projectId?.let { projectDao.getById(it)?.name }
         return completionLogDao.insert(
             CompletionLog(
                 taskId = task.id,
                 titleSnapshot = task.title,
-                projectNameSnapshot = null, // set from the project name once projects exist
+                projectNameSnapshot = projectName, // snapshot so history survives project renames/deletes
                 completedAt = now,
             )
         )

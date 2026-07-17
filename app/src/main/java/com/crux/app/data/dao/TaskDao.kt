@@ -26,6 +26,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: Long): Task?
 
+    /** Every task, archived included (json export). */
+    @Query("SELECT * FROM tasks")
+    suspend fun getAll(): List<Task>
+
+    @Insert
+    suspend fun insertAll(tasks: List<Task>)
+
     /** The task detail screen observes a single task so edits reflect live. Null once it is gone. */
     @Query("SELECT * FROM tasks WHERE id = :id")
     fun observeById(id: Long): Flow<Task?>

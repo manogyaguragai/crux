@@ -32,4 +32,11 @@ interface ProjectDao {
     /** Highest rank currently in use among active projects; null when there are none. */
     @Query("SELECT MAX(rank) FROM projects WHERE archived = 0")
     suspend fun maxActiveRank(): Int?
+
+    /** Every project, archived included (json export). */
+    @Query("SELECT * FROM projects")
+    suspend fun getAll(): List<Project>
+
+    @Insert
+    suspend fun insertAll(projects: List<Project>)
 }

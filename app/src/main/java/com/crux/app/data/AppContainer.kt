@@ -1,6 +1,7 @@
 package com.crux.app.data
 
 import android.content.Context
+import com.crux.app.notifications.NotificationScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -15,7 +16,7 @@ class AppContainer(context: Context) {
     val database: CruxDatabase by lazy { CruxDatabase.build(appContext) }
 
     val taskRepository: TaskRepository by lazy {
-        TaskRepository(database.taskDao(), database.completionLogDao())
+        TaskRepository(database.taskDao(), database.completionLogDao(), database.projectDao())
     }
 
     val projectRepository: ProjectRepository by lazy {
@@ -23,6 +24,13 @@ class AppContainer(context: Context) {
     }
 
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
+
+    val backupRepository: BackupRepository by lazy { BackupRepository(database) }
+
+    /** Re-apply the daily digest schedule after a notification setting changes. */
+    fun rescheduleNotifications(prefs: NotificationPrefs) {
+        NotificationScheduler.reschedule(appContext, prefs)
+    }
 
     /**
      * The hard reset (owner request): wipe every table back to empty and drop all preferences, so

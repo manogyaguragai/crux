@@ -1,5 +1,9 @@
 package com.crux.app.ui.screens.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,10 +21,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.SettingsViewModel
@@ -46,18 +57,44 @@ import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Overdue
 import com.crux.app.ui.theme.Overlay
 import com.crux.app.ui.theme.Surface
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Settings (a pushed screen, ui-ux-decisions.md). Phase 1 ships the two appearance controls the
- * owner asked for (OLED deep mode, text size) and the hard reset. Notification toggles and backup
- * entry points arrive with their own slices.
+ * Settings (a pushed screen, ui-ux-decisions.md). Appearance (OLED deep, text size), notifications
+ * (three toggles with configurable morning/wrap times), and the hard reset. Backup entry points
+ * arrive with their own slice.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () -> Unit) {
     val deep by vm.deepMode.collectAsStateWithLifecycle()
     val fontScale by vm.fontScale.collectAsStateWithLifecycle()
+    val notif by vm.notifications.collectAsStateWithLifecycle()
     var confirmingReset by remember { mutableStateOf(false) }
+    var showMorningPicker by remember { mutableStateOf(false) }
+    var showWrapPicker by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* granted or not; digests simply stay silent until granted */ }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let { vm.export(context.contentResolver, it) } }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { vm.import(context.contentResolver, it) } }
+    fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Column(
         Modifier
@@ -102,8 +139,56 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
         }
         Spacer(Modifier.height(Dimens.GroupGap))
 
+        // notifications (times are configurable below)
+        SectionLabel(Copy.SETTINGS_NOTIFICATIONS)
+        NotifRow(
+            title = Copy.NOTIF_MORNING,
+            subtitle = Copy.NOTIF_MORNING_SUB,
+            checked = notif.morningEnabled,
+            time = minutesLabel(notif.morningMinutes),
+            onToggle = { on -> vm.setMorning(on, notif.morningMinutes); if (on) ensureNotificationPermission() },
+            onTimeClick = { showMorningPicker = true },
+        )
+        Spacer(Modifier.height(Dimens.Unit * 4))
+        NotifRow(
+            title = Copy.NOTIF_DUE,
+            subtitle = Copy.NOTIF_DUE_SUB,
+            checked = notif.dueEnabled,
+            time = null,
+            onToggle = { on -> vm.setDue(on); if (on) ensureNotificationPermission() },
+            onTimeClick = {},
+        )
+        Spacer(Modifier.height(Dimens.Unit * 4))
+        NotifRow(
+            title = Copy.NOTIF_WRAP,
+            subtitle = Copy.NOTIF_WRAP_SUB,
+            checked = notif.wrapEnabled,
+            time = minutesLabel(notif.wrapMinutes),
+            onToggle = { on -> vm.setWrap(on, notif.wrapMinutes); if (on) ensureNotificationPermission() },
+            onTimeClick = { showWrapPicker = true },
+        )
+        Spacer(Modifier.height(Dimens.GroupGap))
+
         // data
         SectionLabel(Copy.SETTINGS_DATA)
+        NavRow(
+            title = Copy.SETTINGS_HISTORY,
+            subtitle = Copy.SETTINGS_HISTORY_SUB,
+            onClick = onOpenHistory,
+        )
+        Spacer(Modifier.height(Dimens.Unit * 4))
+        NavRow(
+            title = Copy.SETTINGS_EXPORT,
+            subtitle = Copy.SETTINGS_EXPORT_SUB,
+            onClick = { exportLauncher.launch(Copy.BACKUP_FILENAME) },
+        )
+        Spacer(Modifier.height(Dimens.Unit * 4))
+        NavRow(
+            title = Copy.SETTINGS_IMPORT,
+            subtitle = Copy.SETTINGS_IMPORT_SUB,
+            onClick = { importLauncher.launch(arrayOf("application/json")) },
+        )
+        Spacer(Modifier.height(Dimens.Unit * 4))
         if (!confirmingReset) {
             DangerRow(
                 title = Copy.SETTINGS_RESET,
@@ -135,11 +220,79 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(Dimens.GroupGap))
+    }
 
-        Text(Copy.SETTINGS_LATER, style = CruxType.Secondary, color = InkLow)
-        Spacer(Modifier.height(Dimens.GroupGap))
+    if (showMorningPicker) {
+        TimePickerDialog(
+            initialMinutes = notif.morningMinutes,
+            onDismiss = { showMorningPicker = false },
+            onConfirm = { minutes -> vm.setMorning(notif.morningEnabled, minutes); showMorningPicker = false },
+        )
+    }
+    if (showWrapPicker) {
+        TimePickerDialog(
+            initialMinutes = notif.wrapMinutes,
+            onDismiss = { showWrapPicker = false },
+            onConfirm = { minutes -> vm.setWrap(notif.wrapEnabled, minutes); showWrapPicker = false },
+        )
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(initialMinutes: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    val state = rememberTimePickerState(
+        initialHour = initialMinutes / 60,
+        initialMinute = initialMinutes % 60,
+        is24Hour = false,
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text(Copy.DETAIL_DIALOG_OK) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Copy.DETAIL_DIALOG_CANCEL) } },
+    ) {
+        Box(Modifier.padding(Dimens.ScreenMargin), contentAlignment = Alignment.Center) {
+            TimePicker(state = state)
+        }
+    }
+}
+
+@Composable
+private fun NotifRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    time: String?,
+    onToggle: (Boolean) -> Unit,
+    onTimeClick: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = CruxType.Body, color = InkHi)
+            Text(subtitle, style = CruxType.Secondary, color = InkMid)
+        }
+        if (time != null && checked) {
+            Chip(label = time, selected = true, onClick = onTimeClick)
+            Spacer(Modifier.width(Dimens.Unit * 2))
+        }
+        Switch(checked = checked, onCheckedChange = onToggle, colors = cruxSwitchColors())
+    }
+}
+
+@Composable
+private fun cruxSwitchColors() = SwitchDefaults.colors(
+    checkedThumbColor = Cream,
+    checkedTrackColor = Garnet,
+    uncheckedThumbColor = InkMid,
+    uncheckedTrackColor = Surface,
+    uncheckedBorderColor = InkLow,
+)
+
+private val MinuteFmt = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private fun minutesLabel(minutes: Int): String =
+    LocalTime.of(minutes / 60, minutes % 60).format(MinuteFmt).lowercase(Locale.ENGLISH)
 
 @Composable
 private fun SectionLabel(label: String) {
@@ -157,17 +310,25 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onCheck
             Text(title, style = CruxType.Body, color = InkHi)
             Text(subtitle, style = CruxType.Secondary, color = InkMid)
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Cream,
-                checkedTrackColor = Garnet,
-                uncheckedThumbColor = InkMid,
-                uncheckedTrackColor = Surface,
-                uncheckedBorderColor = InkLow,
-            ),
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange, colors = cruxSwitchColors())
+    }
+}
+
+@Composable
+private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.RadiusCard))
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(vertical = Dimens.Unit * 2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = CruxType.Body, color = InkHi)
+            Text(subtitle, style = CruxType.Secondary, color = InkMid)
+        }
     }
 }
 

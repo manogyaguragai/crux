@@ -46,6 +46,7 @@ import com.crux.app.domain.model.Project
 import com.crux.app.ui.Copy
 import com.crux.app.ui.ProjectsViewModel
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Garnet
@@ -64,7 +65,7 @@ import kotlinx.coroutines.delay
  * controls inside an edit mode, not drag (ui-ux-decisions.md: drag is polish, not spine).
  */
 @Composable
-fun ProjectsScreen(vm: ProjectsViewModel) {
+fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
     val projects by vm.active.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     var showDuplicate by remember { mutableStateOf(false) }
@@ -84,12 +85,7 @@ fun ProjectsScreen(vm: ProjectsViewModel) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = Copy.TAB_PROJECTS, style = CruxType.Display, color = InkHi)
+        TabHeader(title = Copy.TAB_PROJECTS, onOpenSettings = onOpenSettings) {
             if (projects.isNotEmpty()) {
                 val interaction = remember { MutableInteractionSource() }
                 Text(

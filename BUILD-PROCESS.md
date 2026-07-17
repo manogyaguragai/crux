@@ -248,6 +248,41 @@ treated as late the instant midnight passes; it only becomes overdue once the wh
 That single rule lives in one place and is covered by tests, so the row and the count can never
 disagree about what "late" means.
 
+### milestone: the app can reach out (2026-07-17)
+
+Until now crux only spoke when you opened it. Now it can send two gentle notifications a day: a
+morning one, "the day's climb", and an evening "wrap". Each is a calm one-line count, never a list of
+demands, for example "3 open, 1 overdue" in the morning or "0 done today, 3 still open" at night. Both
+can be switched off, and, at the owner's request, the times are yours to set: tap the time next to
+either one and pick when it should arrive. There is also a "due" switch for per-task reminders, which
+is wired but not yet firing; that piece needs a bit more plumbing and comes next.
+
+The scheduling is done in a way that quietly survives a phone restart without any extra machinery, and
+each notification politely reschedules the next day's as it fires. The app asks permission to notify
+only when you actually turn a notification on, not before. And the settings gear, which used to live
+only on the home screen, now sits in the corner of every tab, so settings is always one tap away.
+
+### milestone: a memory, and a way out (2026-07-17)
+
+Two last pieces close out the spine. First, history: inside settings there is now a "history" screen
+that lists everything you have ever finished, newest first, gathered under day headings like "today"
+and "yesterday", each with the time you ticked it off. Because a finished task's row is cleared away
+each morning, this list reads from a separate permanent record that is written the moment you complete
+something, and it now remembers which project the task belonged to, even if you later rename or remove
+that project.
+
+Second, backup. You can now export everything, every task, project, and completion, into a single
+file you choose the location for, and import it back later, which replaces what is in the app with
+what is in the file. It uses the phone's own file picker, so the app never needs permission to roam
+your storage, and the file is plain, readable JSON. The part that decides exactly how that file is
+shaped is written as a small self-contained piece with its own test that saves and reloads a sample
+and checks nothing was lost, so a backup made today will still open correctly later.
+
+With capture, projects, task detail, the grouped stack, the completion ceremony, reminders, history,
+and backup all in place, the deterministic spine the plan set out to build is, for daily use, done.
+What remains of phase one are a few tails (a couple of finer notification and deletion behaviours),
+after which comes phase two: teaching crux to understand typed shorthand, still entirely offline.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

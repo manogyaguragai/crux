@@ -53,7 +53,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.crux.app.CruxApplication
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.screens.detail.TaskDetailScreen
+import com.crux.app.ui.screens.history.HistoryScreen
 import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.settings.SettingsScreen
@@ -129,9 +131,9 @@ fun CruxApp() {
                     composable(tab.route) {
                         when (tab) {
                             CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
-                            CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask)
-                            CruxTab.Projects -> ProjectsScreen(projectsVm)
-                            else -> EmptyTabScreen(tab)
+                            CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
+                            CruxTab.Projects -> ProjectsScreen(projectsVm, onOpenSettings = openSettings)
+                            else -> EmptyTabScreen(tab, onOpenSettings = openSettings)
                         }
                     }
                 }
@@ -150,7 +152,16 @@ fun CruxApp() {
                     TaskDetailScreen(vm = detailVm, onBack = { nav.popBackStack() })
                 }
                 composable("settings") {
-                    SettingsScreen(vm = settingsVm, onBack = { nav.popBackStack() })
+                    SettingsScreen(
+                        vm = settingsVm,
+                        onBack = { nav.popBackStack() },
+                        onOpenHistory = { nav.navigate("history") },
+                    )
+                }
+                composable("history") {
+                    val historyVm: HistoryViewModel =
+                        viewModel(factory = HistoryViewModel.factory(container.taskRepository))
+                    HistoryScreen(vm = historyVm, onBack = { nav.popBackStack() })
                 }
             }
         }
@@ -244,9 +255,9 @@ private fun RowScope.CruxTabItem(tab: CruxTab, selected: Boolean, onClick: () ->
     }
 }
 
-/** Phase 0: a themed empty surface per tab. Real screens replace these in phase 1. */
+/** A themed empty surface for the not-yet-built tabs (review). Carries the shared header + gear. */
 @Composable
-private fun EmptyTabScreen(tab: CruxTab) {
+private fun EmptyTabScreen(tab: CruxTab, onOpenSettings: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -254,7 +265,7 @@ private fun EmptyTabScreen(tab: CruxTab) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Box(Modifier.fillMaxWidth().height(Dimens.ScreenMargin))
-        Text(text = tab.label, style = CruxType.Display, color = InkHi)
+        TabHeader(title = tab.label, onOpenSettings = onOpenSettings)
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             tab.empty?.let {
                 Text(text = it, style = CruxType.Passage, color = InkMid, textAlign = TextAlign.Center)

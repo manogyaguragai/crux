@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
-import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.components.Omnibar
+import com.crux.app.ui.components.SettingsGear
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
@@ -59,7 +59,6 @@ fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: (
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))
         // top strip: the overdue nudge count on the left (live count -> ember), settings gear right.
-        val gearInteraction = remember { MutableInteractionSource() }
         Box(Modifier.fillMaxWidth()) {
             if (overdue > 0) {
                 Text(
@@ -69,15 +68,7 @@ fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: (
                     modifier = Modifier.align(Alignment.CenterStart),
                 )
             }
-            Icon(
-                imageVector = CruxIcons.Settings,
-                contentDescription = "settings",
-                tint = InkLow,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(24.dp)
-                    .clickable(interactionSource = gearInteraction, indication = null, onClick = onOpenSettings),
-            )
+            SettingsGear(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterEnd))
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (top.isEmpty()) {

@@ -21,4 +21,11 @@ interface CompletionLogDao {
 
     @Query("DELETE FROM completion_log WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** The whole log (json export). */
+    @Query("SELECT * FROM completion_log")
+    suspend fun getAll(): List<CompletionLog>
+
+    @Insert
+    suspend fun insertAll(logs: List<CompletionLog>)
 }

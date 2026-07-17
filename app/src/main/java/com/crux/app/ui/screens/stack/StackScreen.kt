@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
+import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
@@ -41,7 +42,7 @@ import com.crux.app.ui.theme.Motion
  * of their own group. Empty groups are omitted, so a project with no tasks shows no header.
  */
 @Composable
-fun StackScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit) {
+fun StackScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: () -> Unit) {
     val groups by vm.groupedStack.collectAsStateWithLifecycle()
     val completing by vm.completingIds.collectAsStateWithLifecycle()
 
@@ -52,7 +53,7 @@ fun StackScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))
-        Text(text = Copy.TAB_STACK, style = CruxType.Display, color = InkHi)
+        TabHeader(title = Copy.TAB_STACK, onOpenSettings = onOpenSettings)
         Spacer(Modifier.height(Dimens.Unit * 2))
 
         if (groups.isEmpty()) {

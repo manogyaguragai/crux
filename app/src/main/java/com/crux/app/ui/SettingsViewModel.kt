@@ -1,12 +1,19 @@
 package com.crux.app.ui
 
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.AppContainer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.crux.app.data.NotificationPrefs
+import com.crux.app.data.SettingsRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -25,11 +32,46 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val fontScale: StateFlow<Float> =
         settings.fontScale.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
 
+    val notifications: StateFlow<NotificationPrefs> =
+        settings.notifications.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            NotificationPrefs(true, SettingsRepository.DEFAULT_MORNING_MIN, true, true, SettingsRepository.DEFAULT_WRAP_MIN),
+        )
+
     fun setDeepMode(on: Boolean) = launch { settings.setDeepMode(on) }
 
     fun setFontScale(scale: Float) = launch { settings.setFontScale(scale) }
 
+    fun setMorning(on: Boolean, minutes: Int) = launch {
+        settings.setMorning(on, minutes)
+        container.rescheduleNotifications(settings.notifications.first())
+    }
+
+    fun setDue(on: Boolean) = launch { settings.setDue(on) }
+
+    fun setWrap(on: Boolean, minutes: Int) = launch {
+        settings.setWrap(on, minutes)
+        container.rescheduleNotifications(settings.notifications.first())
+    }
+
     fun hardReset() = launch { container.hardReset() }
+
+    /** Write the full backup JSON to the SAF-picked file. */
+    fun export(resolver: ContentResolver, uri: Uri) = launch {
+        val json = container.backupRepository.exportJson(System.currentTimeMillis())
+        withContext(Dispatchers.IO) {
+            resolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+        }
+    }
+
+    /** Replace all data from the SAF-picked backup file. */
+    fun import(resolver: ContentResolver, uri: Uri) = launch {
+        val json = withContext(Dispatchers.IO) {
+            resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }
+        if (!json.isNullOrBlank()) container.backupRepository.importJson(json)
+    }
 
     private fun launch(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
