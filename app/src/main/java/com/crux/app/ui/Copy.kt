@@ -53,6 +53,8 @@ object Copy {
     const val BACKUP_FILENAME = "crux-backup.json"
     const val SETTINGS_HISTORY = "history"
     const val SETTINGS_HISTORY_SUB = "everything you've finished"
+    const val SETTINGS_CLEAR_ARCHIVED = "clear archived projects"
+    const val SETTINGS_CLEAR_ARCHIVED_CONFIRM = "clear"
     const val HISTORY_TITLE = "history"
     const val HISTORY_EMPTY = "nothing finished yet. tick something off."
     const val HISTORY_TODAY = "today"

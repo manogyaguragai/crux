@@ -55,6 +55,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         container.rescheduleNotifications(settings.notifications.first())
     }
 
+    val archivedCount: StateFlow<Int> =
+        container.projectRepository.observeArchivedCount()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun clearArchived() = launch { container.projectRepository.clearArchived() }
+
     fun hardReset() = launch { container.hardReset() }
 
     /** Write the full backup JSON to the SAF-picked file. */

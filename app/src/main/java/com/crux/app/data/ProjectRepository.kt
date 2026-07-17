@@ -58,6 +58,12 @@ class ProjectRepository(
         projectDao.update(project.copy(archived = true))
     }
 
+    /** Count of archived projects; settings offers the purge only when > 0. */
+    fun observeArchivedCount(): Flow<Int> = projectDao.observeArchivedCount()
+
+    /** Permanently delete archived projects, freeing their reserved names (settings purge). */
+    suspend fun clearArchived(): Int = projectDao.deleteArchived()
+
     /** Swap two projects' ranks; the up/down re-rank controls call this with adjacent neighbours. */
     suspend fun swapRanks(a: Project, b: Project) {
         projectDao.update(a.copy(rank = b.rank))

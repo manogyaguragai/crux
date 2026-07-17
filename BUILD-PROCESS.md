@@ -283,6 +283,27 @@ and backup all in place, the deterministic spine the plan set out to build is, f
 What remains of phase one are a few tails (a couple of finer notification and deletion behaviours),
 after which comes phase two: teaching crux to understand typed shorthand, still entirely offline.
 
+### milestone: phase 1 is complete (2026-07-17)
+
+The last handful of pieces are in, and with them the first phase of crux is done. Reminders now fire
+for individual tasks at the exact minute you set, not just as the twice-daily summaries; the app
+re-arms them whenever your list changes and again after the phone restarts. The clearing-away of
+yesterday's finished tasks now also happens on its own overnight, so it is not left waiting for you to
+open the app. And projects you have set aside can be swept out for good from settings, which also
+frees their names to be used again.
+
+That completes the promise the plan opened with: a calm, entirely offline task app that lets you
+capture a thought in one line, file it under a project you have ranked, keeps the few things that
+matter today in front of you, and lets you tick them off with a small moment of ceremony, backed by
+reminders, a permanent history, and a backup you own. Everything so far was built to prove this spine
+before adding anything clever.
+
+What comes next is phase two: teaching crux to read the shorthand you already type, a "#" for a
+project, a "!" for a priority, a date in plain words, and to show you what it understood so you can
+correct it, all still without a line of network code. The groundwork for it, a table of example
+phrases and the answers they should produce, has been sitting in the tests since the very first
+milestone, waiting. That is where the next chapter begins.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

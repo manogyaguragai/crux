@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,9 +74,18 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
     val deep by vm.deepMode.collectAsStateWithLifecycle()
     val fontScale by vm.fontScale.collectAsStateWithLifecycle()
     val notif by vm.notifications.collectAsStateWithLifecycle()
+    val archived by vm.archivedCount.collectAsStateWithLifecycle()
     var confirmingReset by remember { mutableStateOf(false) }
+    var purgeArmed by remember { mutableStateOf(false) }
     var showMorningPicker by remember { mutableStateOf(false) }
     var showWrapPicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(purgeArmed) {
+        if (purgeArmed) {
+            kotlinx.coroutines.delay(3000)
+            purgeArmed = false
+        }
+    }
 
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -189,6 +199,21 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
             onClick = { importLauncher.launch(arrayOf("application/json")) },
         )
         Spacer(Modifier.height(Dimens.Unit * 4))
+        if (archived > 0) {
+            DangerRow(
+                title = if (purgeArmed) "clear $archived archived? tap again" else Copy.SETTINGS_CLEAR_ARCHIVED,
+                subtitle = "$archived archived · frees their names, permanent",
+                onClick = {
+                    if (purgeArmed) {
+                        vm.clearArchived()
+                        purgeArmed = false
+                    } else {
+                        purgeArmed = true
+                    }
+                },
+            )
+            Spacer(Modifier.height(Dimens.Unit * 4))
+        }
         if (!confirmingReset) {
             DangerRow(
                 title = Copy.SETTINGS_RESET,

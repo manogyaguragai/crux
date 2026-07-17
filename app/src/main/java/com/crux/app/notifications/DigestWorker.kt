@@ -1,19 +1,9 @@
 package com.crux.app.notifications
 
-import android.Manifest
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.crux.app.CruxApplication
-import com.crux.app.MainActivity
-import com.crux.app.R
 import com.crux.app.domain.isOverdue
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -61,32 +51,8 @@ class DigestWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             Triple(CruxNotifications.CHANNEL_WRAP, "wrap", text)
         }
 
-        post(channel, title, text, notificationId = kind.hashCode())
+        CruxNotifications.post(applicationContext, channel, title, text, notificationId = kind.hashCode())
         return Result.success()
-    }
-
-    private fun post(channel: String, title: String, text: String, notificationId: Int) {
-        // POST_NOTIFICATIONS is a runtime permission only on API 33+; below that, posting is free.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) return
-
-        val launch = Intent(applicationContext, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pending = PendingIntent.getActivity(
-            applicationContext, 0, launch,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val notification = NotificationCompat.Builder(applicationContext, channel)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(pending)
-            .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
     }
 
     companion object {

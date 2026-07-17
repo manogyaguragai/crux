@@ -39,4 +39,12 @@ interface ProjectDao {
 
     @Insert
     suspend fun insertAll(projects: List<Project>)
+
+    /** How many archived projects are lingering (settings shows a purge only when there are some). */
+    @Query("SELECT COUNT(*) FROM projects WHERE archived = 1")
+    fun observeArchivedCount(): Flow<Int>
+
+    /** Permanently remove archived projects (the settings "clear archived" purge; frees their names). */
+    @Query("DELETE FROM projects WHERE archived = 1")
+    suspend fun deleteArchived(): Int
 }
