@@ -29,7 +29,14 @@ object Copy {
 
     // empty states (copy bank, verbatim)
     const val EMPTY_HOME = "clear trail. nothing overdue."
+    // overdue pile (pushed screen behind the home nudge). proposed, pending owner approval.
+    const val OVERDUE_TITLE = "overdue"
+    const val OVERDUE_EMPTY = "nothing overdue. clear trail."
     const val EMPTY_STACK = "nothing here yet. the omnibar is on home."
+    // stack view toggle + week view (phase 2). proposed, pending owner approval.
+    const val STACK_VIEW_STACK = "stack"
+    const val STACK_VIEW_WEEK = "week"
+    const val EMPTY_WEEK = "nothing due this week."
     const val STACK_INBOX = "inbox" // the catch-all group header, always last (data-model.md)
     const val EMPTY_REVIEW = "no questions today."
     // projects strings: proposed in phase 1 (the copy bank had no projects entries).

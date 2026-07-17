@@ -9,7 +9,9 @@ import com.crux.app.data.ProjectRepository
 import com.crux.app.data.SettingsRepository
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.StackGroup
+import com.crux.app.domain.WeekDay
 import com.crux.app.domain.groupStack
+import com.crux.app.domain.groupWeek
 import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
@@ -61,11 +63,27 @@ class TasksViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** The overdue pile (the screen behind the nudge): open + past due, most overdue first. */
+    val overdueTasks: StateFlow<List<Task>> =
+        tasks.observeOpen()
+            .map { list ->
+                val now = Instant.now()
+                val zone = ZoneId.systemDefault()
+                list.filter { isOverdue(it, now, zone) }.sortedBy { it.dueAt }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** The stack, grouped by project rank with the inbox last (empty groups omitted). */
     val groupedStack: StateFlow<List<StackGroup>> =
         combine(tasks.observeStack(), projects.observeActive()) { taskList, projectList ->
             groupStack(taskList, projectList, Copy.STACK_INBOX)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The week view (stack tab's alternate mode): open tasks due in the next 7 days, by day. */
+    val weekDays: StateFlow<List<WeekDay>> =
+        tasks.observeOpen()
+            .map { list -> groupWeek(list, LocalDate.now(ZoneId.systemDefault()), ZoneId.systemDefault()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Active projects reduced to what the omnibar parser needs (id + name, for #tag matching). */
     val knownProjects: StateFlow<List<KnownProject>> =

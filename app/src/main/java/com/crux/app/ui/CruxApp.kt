@@ -57,6 +57,7 @@ import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.screens.detail.TaskDetailScreen
 import com.crux.app.ui.screens.history.HistoryScreen
 import com.crux.app.ui.screens.home.HomeScreen
+import com.crux.app.ui.screens.overdue.OverdueScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.settings.SettingsScreen
 import com.crux.app.ui.screens.stack.StackScreen
@@ -128,6 +129,7 @@ fun CruxApp() {
         ) { innerPadding ->
             val openTask: (Long) -> Unit = { id -> nav.navigate("task/$id") }
             val openSettings: () -> Unit = { nav.navigate("settings") }
+            val openOverdue: () -> Unit = { nav.navigate("overdue") }
             NavHost(
                 navController = nav,
                 startDestination = CruxTab.Home.route,
@@ -136,7 +138,7 @@ fun CruxApp() {
                 CruxTab.entries.forEach { tab ->
                     composable(tab.route) {
                         when (tab) {
-                            CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
+                            CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings, onOpenOverdue = openOverdue)
                             CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
                             CruxTab.Projects -> ProjectsScreen(projectsVm, onOpenSettings = openSettings)
                             else -> EmptyTabScreen(tab, onOpenSettings = openSettings)
@@ -156,6 +158,9 @@ fun CruxApp() {
                         ),
                     )
                     TaskDetailScreen(vm = detailVm, onBack = { nav.popBackStack() })
+                }
+                composable("overdue") {
+                    OverdueScreen(vm = vm, onBack = { nav.popBackStack() }, onOpenTask = openTask)
                 }
                 composable("settings") {
                     SettingsScreen(

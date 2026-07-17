@@ -6,6 +6,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -66,7 +70,12 @@ import com.crux.app.ui.theme.Motion
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: () -> Unit) {
+fun HomeScreen(
+    vm: TasksViewModel,
+    onOpenTask: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenOverdue: () -> Unit,
+) {
     val tasks by vm.homeTasks.collectAsStateWithLifecycle()
     val completing by vm.completingIds.collectAsStateWithLifecycle()
     val overdue by vm.overdueCount.collectAsStateWithLifecycle()
@@ -120,11 +129,17 @@ fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: (
             // top strip: the overdue nudge count on the left (live count -> ember), settings gear right.
             Box(Modifier.fillMaxWidth()) {
                 if (overdue > 0) {
+                    // tap the nudge to open the overdue pile (the screen behind it).
+                    val nudgeInteraction = remember { MutableInteractionSource() }
                     Text(
                         text = "$overdue overdue",
                         style = CruxType.Data,
                         color = Ember,
-                        modifier = Modifier.align(Alignment.CenterStart),
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(Dimens.RadiusPill))
+                            .clickable(interactionSource = nudgeInteraction, indication = null) { onOpenOverdue() }
+                            .padding(vertical = Dimens.Unit, horizontal = Dimens.Unit),
                     )
                 }
                 SettingsGear(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterEnd))
