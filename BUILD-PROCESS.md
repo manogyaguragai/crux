@@ -1,0 +1,115 @@
+# building crux, start to finish
+
+A running journal of how crux gets built, written for me, the owner, on my first ever app.
+Plain language, no assumed Android knowledge. Every milestone adds a section here, and the
+file is committed to GitHub each time so the history of the build lives with the code.
+
+No em dashes anywhere, per the project's own writing rule.
+
+---
+
+## 1. the idea
+
+crux is a personal task app for exactly one person: me. It captures a task in one box, files
+it under a ranked project, and always keeps the few things that matter today in front of me.
+
+The name comes from climbing: the crux is the hardest move on a route, the point that decides
+the whole climb. The app's one job is to keep the crux of my day visible.
+
+Three commitments shape everything:
+
+- **offline first.** every core feature works with no internet. the deterministic core (capture,
+  rank, sort, tick) never needs a network.
+- **zero budget.** free tiers only. no API key ever ships inside the app.
+- **calm, not needy.** no streaks, no badges, no confetti, no nagging. a good climbing partner,
+  not a coach.
+
+An optional AI layer comes much later and is always visible, never silent.
+
+## 2. how we got here (before a line of code)
+
+A lot was decided before building, so the build itself has no guesswork. All of it lives in the
+`docs/` kit in this repo. The order it was settled in:
+
+1. **naming and concept.** the product brief: what crux is and, just as important, what it is not
+   (no iOS, no web, no teams, no month calendar, no gamification).
+2. **locked decisions.** the choices that were argued once and are not reopened casually: android
+   only, kotlin, dark theme only, four recurrence shapes, four navigation tabs, and so on.
+3. **the brand and design system, called "Chisel".**
+   - a voice: lowercase, calm, numbers first, no exclamation points.
+   - a palette: warm greys plus a family of reds (oxblood, garnet, ember). red is rationed to
+     exactly four places in the whole app, so it always means something.
+   - three typefaces: Bricolage Grotesque for display, Instrument Sans for interface (its italic
+     is the app's soft voice), Geist Mono for anything that is data.
+   - signature pieces: "the hold" (an irregular pebble-shaped checkbox), "the bloom" (a slow red
+     glow behind the capture bar), "the stone stack" mark used in the logo and the home tab.
+   - all of this exists as a brand book and eight screen mockups (the two HTML files in
+     `docs/02-design/`).
+4. **the flow and architecture.** how data moves (one direction: capture, file, sort, show), the
+   exact sort order that ranks tasks, the recurrence math, and the phase plan below.
+
+## 3. the plan: phases are law
+
+The app is built in strict phases. Nothing from a later phase is pulled forward, even when it
+looks easy. The point is to prove the spine before adding anything clever.
+
+- **phase 0, foundation.** the empty skeleton that builds and runs. (this is where we are.)
+- **phase 1, the spine (no AI).** real capture, projects, the task list, ticking, notifications,
+  backup. daily-drivable for two weeks before anything else.
+- **phase 2, deterministic intelligence.** typed shortcuts like `#project`, `!p1`, dates, and
+  recurrence, all offline, no AI.
+- **phase 3, the AI layer.** natural language parsing with a visible, correctable result.
+- **phase 4, voice and polish.**
+
+## 4. what has been executed so far
+
+### milestone: environment ready (2026-07-17)
+
+Before any code, the machine had to be able to build android apps. It was missing the two core
+pieces, so they were installed into my home folder (no system changes, no admin password):
+
+- **JDK 17** (Java). the build tool runs on Java, so Java has to exist first.
+- **the Android SDK** (platform android-36, build-tools, platform-tools). the toolbox that turns
+  Kotlin into an installable app and talks to my phone over USB.
+- **my phone** was connected and authorized for USB debugging, so builds can install straight onto
+  it.
+
+These are now remembered in my shell profile, so every future terminal finds them automatically.
+
+### milestone: phase 0 complete, the foundation builds and runs (2026-07-17)
+
+The empty but real skeleton of the app, built, installed, and confirmed running on my phone:
+four themed empty tabs (home, stack, projects, review), the right dark palette and fonts, the
+custom stone-stack home icon, and the garnet marker under the active tab. The core-logic unit
+tests pass. What exists now:
+
+- a **Gradle project** (`com.crux.app`), the standard android project structure, with all
+  dependency versions pinned in one catalog file so they never drift.
+- the **database** (Room): the three data shapes (project, task, and a completion log), their
+  access objects, and migrations turned on from day one so future data changes are safe.
+- the **design tokens as code**: `Color.kt`, `Type.kt`, `Dimens.kt`, `Motion.kt`. every color,
+  size, and font in the app comes from these files, never hardcoded. the three Chisel fonts are
+  bundled in the app.
+- the **theme and the four-tab shell**: home, stack, projects, review. each tab is a themed empty
+  screen for now. the tab icons are the real ones drawn from the mockups (the stone stack for
+  home), not generic placeholders.
+- the **core logic, tested**: the sort order and the recurrence math (the two pieces that carry
+  the whole product) are written exactly to spec and covered by unit tests that pass.
+- the **parser test table**: the list of example inputs the future parser must handle, parked and
+  ignored until phase 2 builds the parser.
+
+### a note on the toolchain (a first-timer lesson)
+
+Getting the versions right took a correction worth remembering. The newest android libraries
+(mid 2026) require the very newest build tools and a not-yet-released android version (37). Chasing
+"newest of everything" broke the build. The fix was to use the newest *coherent* set that actually
+works together: build tools 8.13.2, android 36 (the current ceiling), and libraries from that same
+generation. Lesson: in android, versions must match each other, not just be individually newest.
+The specific choices are recorded in `DECISIONS.log`.
+
+## 5. how this journal works
+
+- one section per milestone, newest at the bottom of section 4.
+- updated the moment a milestone lands, before anything else.
+- committed to GitHub with each update, so the build's story is versioned alongside the code.
+- the day to day task tracking lives in `TASKS.md`; this file is the readable narrative.
