@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.crux.app.data.CompletionResult
 import com.crux.app.data.ProjectRepository
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.StackGroup
@@ -11,7 +12,13 @@ import com.crux.app.domain.groupStack
 import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
+import com.crux.app.intelligence.KnownProject
+import com.crux.app.intelligence.ParseField
+import com.crux.app.intelligence.ProjectRef
+import com.crux.app.intelligence.parse
+import com.crux.app.intelligence.toTask
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import com.crux.app.ui.theme.Motion
 import kotlinx.coroutines.channels.Channel
@@ -58,6 +65,12 @@ class TasksViewModel(
             groupStack(taskList, projectList, Copy.STACK_INBOX)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Active projects reduced to what the omnibar parser needs (id + name, for #tag matching). */
+    val knownProjects: StateFlow<List<KnownProject>> =
+        projects.observeActive()
+            .map { list -> list.map { KnownProject(it.id, it.name) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val undoChannel = Channel<Unit>(Channel.CONFLATED)
     val undoEvents = undoChannel.receiveAsFlow()
 
@@ -69,7 +82,7 @@ class TasksViewModel(
     private val completing = MutableStateFlow<Set<Long>>(emptySet())
     val completingIds: StateFlow<Set<Long>> = completing.asStateFlow()
 
-    private var lastCompletion: Pair<Task, Long>? = null
+    private var lastCompletion: Pair<Task, CompletionResult>? = null
 
     init {
         viewModelScope.launch {
@@ -84,9 +97,28 @@ class TasksViewModel(
         }
     }
 
-    fun capture(text: String) {
+    /**
+     * Capture through the deterministic grammar. The omnibar hands over the raw line plus the set of
+     * fields the user dismissed (a tapped chip); we re-parse authoritatively here — the UI's live
+     * parse was only a preview. An unknown `#tag` is created on the spot and the task filed there;
+     * if the title ends up empty (a line of nothing but tokens) we keep the raw text so nothing is
+     * lost. Capture never fails.
+     */
+    fun capture(text: String, dismissed: Set<ParseField> = emptySet()) {
         if (text.isBlank()) return
-        viewModelScope.launch { tasks.addTitleOnly(text, System.currentTimeMillis()) }
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
+            val result = parse(text, today, knownProjects.value, dismissed)
+            val projectId = when (val p = result.project) {
+                is ProjectRef.Matched -> p.id
+                is ProjectRef.Unknown -> projects.create(p.raw, now) // null if blank/reserved -> inbox
+                null -> null
+            }
+            val safe = if (result.title.isBlank()) result.copy(title = text.trim()) else result
+            tasks.add(safe.toTask(projectId, zone, now))
+        }
     }
 
     fun complete(task: Task) {
@@ -97,16 +129,16 @@ class TasksViewModel(
             // savour the strike-through in place, then commit and let it sink. runs on
             // viewModelScope, so leaving the tab mid-ceremony still lands the completion.
             delay(Motion.StrikeMs.toLong())
-            val logId = tasks.complete(task, System.currentTimeMillis())
-            lastCompletion = task to logId
+            val result = tasks.complete(task, System.currentTimeMillis(), ZoneId.systemDefault())
+            lastCompletion = task to result
             undoChannel.send(Unit)
         }
     }
 
     fun undoLast() {
-        val (task, logId) = lastCompletion ?: return
+        val (task, result) = lastCompletion ?: return
         viewModelScope.launch {
-            tasks.undoComplete(task, logId)
+            tasks.undoComplete(task, result)
             lastCompletion = null
         }
     }

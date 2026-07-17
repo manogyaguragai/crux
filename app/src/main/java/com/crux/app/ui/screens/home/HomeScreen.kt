@@ -50,6 +50,7 @@ fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: (
     val top by vm.top3.collectAsStateWithLifecycle()
     val completing by vm.completingIds.collectAsStateWithLifecycle()
     val overdue by vm.overdueCount.collectAsStateWithLifecycle()
+    val knownProjects by vm.knownProjects.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -104,7 +105,11 @@ fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit, onOpenSettings: (
                 }
             }
         }
-        Omnibar(onCapture = vm::capture, modifier = Modifier.fillMaxWidth())
+        Omnibar(
+            projects = knownProjects,
+            onCapture = vm::capture,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(Dimens.GroupGap))
     }
 }

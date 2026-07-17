@@ -17,6 +17,12 @@ object Copy {
     // in phase 1 everything typed becomes a title-only task.
     const val OMNIBAR_PLACEHOLDER = "add to the stack, or ask it anything…"
 
+    // omnibar parse chips (phase 2). proposed, logged in DECISIONS.log pending owner approval.
+    // chisel voice: lowercase, calm. the "new" prefix marks an unrecognised #tag that will be
+    // created on capture; the two-dates notice explains why only the first date stuck.
+    const val OMNIBAR_CHIP_NEW = "new"
+    const val OMNIBAR_NOTICE_TWO_DATES = "two dates. kept the first"
+
     // undo snackbar (copy bank: "done. undo", where undo is the action)
     const val SNACKBAR_DONE = "done."
     const val SNACKBAR_UNDO = "undo"

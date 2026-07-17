@@ -26,6 +26,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: Long): Task?
 
+    /** Undo of a recurring completion removes the occurrence that was spawned on complete. */
+    @Query("DELETE FROM tasks WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     /** Every task, archived included (json export). */
     @Query("SELECT * FROM tasks")
     suspend fun getAll(): List<Task>
