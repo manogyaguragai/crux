@@ -17,6 +17,6 @@ class AppContainer(context: Context) {
     }
 
     val projectRepository: ProjectRepository by lazy {
-        ProjectRepository(database.projectDao())
+        ProjectRepository(database.projectDao(), database.taskDao())
     }
 }

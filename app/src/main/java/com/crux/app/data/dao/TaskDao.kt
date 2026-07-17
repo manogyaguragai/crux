@@ -30,6 +30,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     fun observeById(id: Long): Flow<Task?>
 
+    /** When a project is removed, its tasks fall loose to the inbox rather than orphaning. */
+    @Query("UPDATE tasks SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun clearProject(projectId: Long)
+
     /** Midnight sweep: delete DONE tasks completed before the start of today (log row keeps the record). */
     @Query("DELETE FROM tasks WHERE status = 'DONE' AND completedAt < :startOfTodayMillis")
     suspend fun sweepDoneBefore(startOfTodayMillis: Long): Int
