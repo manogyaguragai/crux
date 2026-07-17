@@ -75,4 +75,32 @@ object CruxIcons {
             stroke("M12 5v14M5 12h14")
         }.build()
     }
+
+    /** re-rank up: a chevron. used by the projects edit mode. viewBox 24. */
+    val ChevronUp: ImageVector by lazy {
+        ImageVector.Builder("chevron_up", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M6 15l6-6 6 6")
+        }.build()
+    }
+
+    /** re-rank down: a chevron. viewBox 24. */
+    val ChevronDown: ImageVector by lazy {
+        ImageVector.Builder("chevron_down", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M6 9l6 6 6-6")
+        }.build()
+    }
+
+    /** back: a left chevron. used by pushed screens (task detail). viewBox 24. */
+    val Back: ImageVector by lazy {
+        ImageVector.Builder("back", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M15 6l-6 6 6 6")
+        }.build()
+    }
+
+    /** archive (soft delete): a box with a down arrow filing into it. viewBox 24. */
+    val Archive: ImageVector by lazy {
+        ImageVector.Builder("archive", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M4 7h16M6 7v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M9 12l3 3 3-3", join = StrokeJoin.Round)
+        }.build()
+    }
 }

@@ -152,6 +152,30 @@ One quiet piece of care under the hood: the pause lives with the task's data, no
 if you tick a task and immediately swipe to another tab before the line finishes drawing, the task
 still completes. The ceremony is visual, but the commitment is real.
 
+### milestone: capture stops hiding, and projects arrive (2026-07-17)
+
+Two things landed together. First, a small but real annoyance: when you tapped the capture bar, the
+phone's keyboard slid up and covered half of it, so you could not see what you were typing. The app
+draws edge to edge (all the way under the system bars), which looks clean but means the app has to
+lift its own content out of the keyboard's way. It now does: the whole bottom shell, the tab bar and
+the capture bar riding above it, rises to sit just above the keyboard. Capture is fully visible while
+you type, which is the whole point of a capture-first app.
+
+Second, the projects tab became real. Until now every task lived in one flat pile. Projects are the
+app's way of ranking what matters: you name a project, and its position in the list is its weight,
+with rank one at the top carrying the most. The tab lets you name a project, and enter an "edit" mode
+to rename one, nudge it up or down the order, or archive it. A few deliberate choices: re-ranking is
+plain up and down arrows rather than drag-to-reorder (drag is a notorious time sink to build well,
+and the product only needs the order to be editable, not draggable); each row shows its position as a
+simple number, so archiving one never leaves a gap in the count; and names have to be unique, so
+trying to reuse one shows a calm "a project with that name exists" without ever throwing away what
+you typed. Archiving is a soft delete for now, with the confirmation step and a permanent "clear
+archived" purge deferred to the settings screen, because nothing is filed under a project yet.
+
+The tab is the first half of a larger idea. The next steps make it pay off: letting a task belong to
+a project (the task detail screen), and then grouping the stack by project rank so the list finally
+organises itself, with the catch-all inbox always last.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

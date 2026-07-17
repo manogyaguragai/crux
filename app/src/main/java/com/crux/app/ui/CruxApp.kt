@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,6 +52,7 @@ import androidx.navigation.compose.rememberNavController
 import com.crux.app.CruxApplication
 import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.screens.home.HomeScreen
+import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.stack.StackScreen
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
@@ -83,6 +85,8 @@ fun CruxApp() {
     val context = LocalContext.current
     val container = (context.applicationContext as CruxApplication).container
     val vm: TasksViewModel = viewModel(factory = TasksViewModel.factory(container.taskRepository))
+    val projectsVm: ProjectsViewModel =
+        viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val snackbarHostState = remember { SnackbarHostState() }
 
     // the 5 s undo window after a completion (copy bank: "done. undo")
@@ -102,6 +106,9 @@ fun CruxApp() {
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
+            // imePadding lifts the whole shell (tab bar + the omnibar riding above it) above the
+            // soft keyboard, so capture stays fully visible while typing (adjustResize in manifest).
+            modifier = Modifier.imePadding(),
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = { CruxTabBar(nav) },
         ) { innerPadding ->
@@ -115,6 +122,7 @@ fun CruxApp() {
                         when (tab) {
                             CruxTab.Home -> HomeScreen(vm)
                             CruxTab.Stack -> StackScreen(vm)
+                            CruxTab.Projects -> ProjectsScreen(projectsVm)
                             else -> EmptyTabScreen(tab)
                         }
                     }

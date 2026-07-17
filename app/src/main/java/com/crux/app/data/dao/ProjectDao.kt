@@ -24,4 +24,12 @@ interface ProjectDao {
 
     @Query("SELECT * FROM projects WHERE id = :id")
     suspend fun getById(id: Long): Project?
+
+    /** Case-insensitive name lookup; the repository uses it to keep names unique. */
+    @Query("SELECT * FROM projects WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun findByNameIgnoreCase(name: String): Project?
+
+    /** Highest rank currently in use among active projects; null when there are none. */
+    @Query("SELECT MAX(rank) FROM projects WHERE archived = 0")
+    suspend fun maxActiveRank(): Int?
 }
