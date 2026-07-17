@@ -34,6 +34,20 @@ object Copy {
     const val PROJECTS_EDIT = "edit"
     const val PROJECTS_DONE = "done"
 
+    // settings (pushed screen). proposed in phase 1, pending owner approval.
+    const val SETTINGS_TITLE = "settings"
+    const val SETTINGS_APPEARANCE = "appearance"
+    const val SETTINGS_DEEP = "deep"
+    const val SETTINGS_DEEP_SUB = "true-black background, easier on oled"
+    const val SETTINGS_TEXT_SIZE = "text size"
+    const val SETTINGS_DATA = "data"
+    const val SETTINGS_RESET = "reset everything"
+    const val SETTINGS_RESET_SUB = "erase all tasks, projects, and settings"
+    const val SETTINGS_RESET_WARN = "this erases every task, project, and setting. it cannot be undone."
+    const val SETTINGS_RESET_CONFIRM = "erase everything"
+    const val SETTINGS_CANCEL = "cancel"
+    const val SETTINGS_LATER = "notifications and backup arrive in a later update."
+
     // task detail (pushed screen). Field labels are lowercase eyebrows; proposed in phase 1
     // (logged in DECISIONS.log), pending owner approval.
     const val DETAIL_TITLE_PLACEHOLDER = "untitled"

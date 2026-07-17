@@ -56,6 +56,7 @@ import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.screens.detail.TaskDetailScreen
 import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
+import com.crux.app.ui.screens.settings.SettingsScreen
 import com.crux.app.ui.screens.stack.StackScreen
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
@@ -67,7 +68,7 @@ import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.Overlay
 import kotlinx.coroutines.withTimeoutOrNull
 import com.crux.app.ui.theme.InkMid
-import com.crux.app.ui.theme.Void
+import com.crux.app.ui.theme.LocalVoid
 
 /** The four tabs. Overdue, detail, and settings are pushed screens, not tabs (ui-ux-decisions.md). */
 private enum class CruxTab(
@@ -91,6 +92,7 @@ fun CruxApp() {
         viewModel(factory = TasksViewModel.factory(container.taskRepository, container.projectRepository))
     val projectsVm: ProjectsViewModel =
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
+    val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val snackbarHostState = remember { SnackbarHostState() }
 
     // the 5 s undo window after a completion (copy bank: "done. undo")
@@ -117,6 +119,7 @@ fun CruxApp() {
             bottomBar = { CruxTabBar(nav) },
         ) { innerPadding ->
             val openTask: (Long) -> Unit = { id -> nav.navigate("task/$id") }
+            val openSettings: () -> Unit = { nav.navigate("settings") }
             NavHost(
                 navController = nav,
                 startDestination = CruxTab.Home.route,
@@ -125,7 +128,7 @@ fun CruxApp() {
                 CruxTab.entries.forEach { tab ->
                     composable(tab.route) {
                         when (tab) {
-                            CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask)
+                            CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
                             CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask)
                             CruxTab.Projects -> ProjectsScreen(projectsVm)
                             else -> EmptyTabScreen(tab)
@@ -145,6 +148,9 @@ fun CruxApp() {
                         ),
                     )
                     TaskDetailScreen(vm = detailVm, onBack = { nav.popBackStack() })
+                }
+                composable("settings") {
+                    SettingsScreen(vm = settingsVm, onBack = { nav.popBackStack() })
                 }
             }
         }
@@ -174,7 +180,7 @@ private fun CruxTabBar(nav: NavController) {
 
     // docked shell: void ground, a single top hairline. the tab row keeps its full height;
     // the system nav-bar inset is added as a spacer BELOW it, never subtracted from the row.
-    Column(Modifier.fillMaxWidth().background(Void)) {
+    Column(Modifier.fillMaxWidth().background(LocalVoid.current)) {
         Box(Modifier.fillMaxWidth().height(Dimens.HairlineWidth).background(Hairline))
         Row(
             Modifier
@@ -244,7 +250,7 @@ private fun EmptyTabScreen(tab: CruxTab) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Void)
+            .background(LocalVoid.current)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Box(Modifier.fillMaxWidth().height(Dimens.ScreenMargin))

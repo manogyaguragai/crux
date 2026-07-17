@@ -8,8 +8,11 @@ import com.crux.app.data.ProjectRepository
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.StackGroup
 import com.crux.app.domain.groupStack
+import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
+import java.time.Instant
+import java.time.ZoneId
 import com.crux.app.ui.theme.Motion
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -38,6 +41,16 @@ class TasksViewModel(
         tasks.observeOpen()
             .map { it.take(3) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** How many open tasks are past due right now (home's nudge count). */
+    val overdueCount: StateFlow<Int> =
+        tasks.observeOpen()
+            .map { list ->
+                val now = Instant.now()
+                val zone = ZoneId.systemDefault()
+                list.count { isOverdue(it, now, zone) }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** The stack, grouped by project rank with the inbox last (empty groups omitted). */
     val groupedStack: StateFlow<List<StackGroup>> =

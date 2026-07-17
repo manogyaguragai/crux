@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import com.crux.app.ui.CruxApp
 import com.crux.app.ui.theme.CruxTheme
@@ -15,8 +17,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val settings = (application as CruxApplication).container.settingsRepository
         setContent {
-            CruxTheme {
+            val deep by settings.deepMode.collectAsState(initial = false)
+            val fontScale by settings.fontScale.collectAsState(initial = 1f)
+            CruxTheme(deep = deep, fontScale = fontScale) {
                 CruxApp()
             }
         }

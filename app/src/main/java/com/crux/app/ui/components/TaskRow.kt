@@ -6,10 +6,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -25,14 +27,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
+import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Gold
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Motion
+import com.crux.app.ui.theme.Overdue
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * A task row: the hold, then the title.
@@ -98,39 +107,94 @@ fun TaskRow(
                 ),
             contentAlignment = Alignment.CenterStart,
         ) {
-            Text(
-                text = task.title,
-                style = CruxType.Body,
-                color = ink,
-                onTextLayout = { layout = it },
-                modifier = Modifier.drawWithContent {
-                    drawContent()
-                    val result = layout ?: return@drawWithContent
-                    if (strike <= 0f) return@drawWithContent
-                    val thickness = StrikeThickness.toPx()
-                    // total ink to spend across every line, filled top line first
-                    val widths = FloatArray(result.lineCount) { i ->
-                        result.getLineRight(i) - result.getLineLeft(i)
-                    }
-                    var budget = strike * widths.sum()
-                    for (i in 0 until result.lineCount) {
-                        if (budget <= 0f) break
-                        val drawn = minOf(budget, widths[i])
-                        val y = (result.getLineTop(i) + result.getLineBottom(i)) / 2f
-                        val x0 = result.getLineLeft(i)
-                        drawLine(
-                            color = InkMid,
-                            start = Offset(x0, y),
-                            end = Offset(x0 + drawn, y),
-                            strokeWidth = thickness,
-                            cap = StrokeCap.Round,
-                        )
-                        budget -= widths[i]
-                    }
-                },
-            )
+            Column {
+                Text(
+                    text = task.title,
+                    style = CruxType.Body,
+                    color = ink,
+                    onTextLayout = { layout = it },
+                    modifier = Modifier.drawWithContent {
+                        drawContent()
+                        val result = layout ?: return@drawWithContent
+                        if (strike <= 0f) return@drawWithContent
+                        val thickness = StrikeThickness.toPx()
+                        // total ink to spend across every line, filled top line first
+                        val widths = FloatArray(result.lineCount) { i ->
+                            result.getLineRight(i) - result.getLineLeft(i)
+                        }
+                        var budget = strike * widths.sum()
+                        for (i in 0 until result.lineCount) {
+                            if (budget <= 0f) break
+                            val drawn = minOf(budget, widths[i])
+                            val y = (result.getLineTop(i) + result.getLineBottom(i)) / 2f
+                            val x0 = result.getLineLeft(i)
+                            drawLine(
+                                color = InkMid,
+                                start = Offset(x0, y),
+                                end = Offset(x0 + drawn, y),
+                                strokeWidth = thickness,
+                                cap = StrokeCap.Round,
+                            )
+                            budget -= widths[i]
+                        }
+                    },
+                )
+                TaskMeta(task = task, faded = struck)
+            }
         }
     }
 }
+
+/**
+ * The meta line under a title: priority (p1/p2/p4, the default p3 stays silent) and the due date,
+ * coloured by urgency (overdue red, due-soon gold, else muted). Renders nothing when a task carries
+ * neither, keeping bare rows clean. Fades with the title when the task is completing/done.
+ */
+@Composable
+private fun TaskMeta(task: Task, faded: Boolean) {
+    val priorityLabel = when (task.priority) {
+        1 -> "p1"; 2 -> "p2"; 4 -> "p4"; else -> null
+    }
+    if (priorityLabel == null && task.dueAt == null) return
+
+    Spacer(Modifier.height(2.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (priorityLabel != null) {
+            Text(
+                text = priorityLabel,
+                style = CruxType.Data,
+                color = if (faded) InkLow else InkMid,
+            )
+        }
+        if (priorityLabel != null && task.dueAt != null) {
+            Spacer(Modifier.width(Dimens.Unit * 2))
+        }
+        task.dueAt?.let { due ->
+            val zone = ZoneId.systemDefault()
+            val now = Instant.now()
+            val zdt = Instant.ofEpochMilli(due).atZone(zone)
+            val label = buildString {
+                append(zdt.format(MetaDateFmt).lowercase(Locale.ENGLISH))
+                if (task.hasTime) {
+                    append(" · ")
+                    append(zdt.format(MetaTimeFmt).lowercase(Locale.ENGLISH))
+                }
+            }
+            val overdue = isOverdue(task, now, zone)
+            val soon = !overdue && task.status == TaskStatus.OPEN && due < now.toEpochMilli() + TWO_DAYS_MS
+            val color = when {
+                faded -> InkLow
+                overdue -> Overdue
+                soon -> Gold
+                else -> InkMid
+            }
+            Text(text = label, style = CruxType.Data, color = color)
+        }
+    }
+}
+
+private val MetaDateFmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+private val MetaTimeFmt = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private const val TWO_DAYS_MS = 2L * 24 * 60 * 60 * 1000
 
 private val StrikeThickness = 1.5.dp

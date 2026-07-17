@@ -90,6 +90,15 @@ object CruxIcons {
         }.build()
     }
 
+    /** settings: two sliders on rails. viewBox 24. */
+    val Settings: ImageVector by lazy {
+        ImageVector.Builder("settings", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M3 8h18M3 16h18")
+            fill("M13.2 8 a2.3 2.3 0 1 0 4.6 0 a2.3 2.3 0 1 0 -4.6 0 Z")
+            fill("M6.2 16 a2.3 2.3 0 1 0 4.6 0 a2.3 2.3 0 1 0 -4.6 0 Z")
+        }.build()
+    }
+
     /** back: a left chevron. used by pushed screens (task detail). viewBox 24. */
     val Back: ImageVector by lazy {
         ImageVector.Builder("back", 24.dp, 24.dp, 24f, 24f).apply {

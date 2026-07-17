@@ -32,8 +32,8 @@ import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Garnet
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkMid
+import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Motion
-import com.crux.app.ui.theme.Void
 
 /**
  * The stack: every open and done task, grouped by project rank with the inbox last (data-model.md).
@@ -48,7 +48,7 @@ fun StackScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Void)
+            .background(LocalVoid.current)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))

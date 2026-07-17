@@ -54,8 +54,8 @@ import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Motion
 import com.crux.app.ui.theme.Overdue
+import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Raised
-import com.crux.app.ui.theme.Void
 import kotlinx.coroutines.delay
 
 /**
@@ -80,7 +80,7 @@ fun ProjectsScreen(vm: ProjectsViewModel) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Void)
+            .background(LocalVoid.current)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))

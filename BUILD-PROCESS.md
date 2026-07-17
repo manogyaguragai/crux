@@ -214,6 +214,40 @@ With this, the spine the whole plan set out to prove is complete: you can captur
 under a ranked project, let the app sort it, and tick it off. Everything from here, reminders,
 backup, settings, and later the intelligence, hangs off this working skeleton.
 
+### milestone: settings, and a clean slate (2026-07-17)
+
+A gear now sits quietly in the top corner of home, and behind it is the first settings screen. It is
+deliberately small. There are two ways to change how the app looks: a "deep" switch that turns the
+already-dark background to true black, which an OLED screen renders as switched-off pixels, and a
+text-size control with four steps for anyone who wants the words larger or smaller. Both changes take
+effect everywhere in the app at once and are remembered between launches.
+
+The important button lives under "data": reset everything. It erases every task, every project, and
+every setting, and hands you back a brand-new app. Because that cannot be undone, it does not happen
+on a single tap; it first replaces itself with a plain-spoken warning and a red "erase everything" to
+confirm, styled in the app's own look rather than a generic system pop-up. This is the button the
+owner asked for so they could clear out all the throwaway data from building and start tracking real
+work. Running it did exactly that: the test tasks and projects from every milestone above are gone,
+and the app is as fresh as the day it first ran.
+
+Under the hood, two small pieces of craft: the text-size setting works by quietly telling the whole
+app to treat every size as a little bigger or smaller, so not one line of the screens had to change;
+and the true-black setting flows from a single switch point, so the background can change in one place
+and every screen follows. What is not here yet, on purpose, are the notification switches and the
+backup buttons; they will arrive alongside the features they control, rather than sitting dead now.
+
+### milestone: the rows learn to speak (2026-07-17)
+
+Now that a task can carry a priority and a date, the list started showing them. Under each task title
+there is a quiet second line: how urgent it is, and when it is due. A date that has already passed
+shows in red, one coming up in the next couple of days in gold, and anything further off stays muted;
+a task with neither a priority nor a date shows nothing extra, so the list stays calm. Home also grew
+a small count in its top corner: "2 overdue", in the app's warm red, but only when something actually
+is. There was one careful detail here worth noting: a task due "today" with no particular time is not
+treated as late the instant midnight passes; it only becomes overdue once the whole day is behind you.
+That single rule lives in one place and is covered by tests, so the row and the count can never
+disagree about what "late" means.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

@@ -1,6 +1,8 @@
 package com.crux.app.data
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Manual dependency container (architecture.md: Hilt is overkill for one module).
@@ -18,5 +20,16 @@ class AppContainer(context: Context) {
 
     val projectRepository: ProjectRepository by lazy {
         ProjectRepository(database.projectDao(), database.taskDao())
+    }
+
+    val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
+
+    /**
+     * The hard reset (owner request): wipe every table back to empty and drop all preferences, so
+     * the app is brand new. Irreversible; the settings screen guards it behind a destructive confirm.
+     */
+    suspend fun hardReset() {
+        withContext(Dispatchers.IO) { database.clearAllTables() }
+        settingsRepository.clear()
     }
 }

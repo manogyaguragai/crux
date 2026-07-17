@@ -58,10 +58,10 @@ import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
+import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Overlay
 import com.crux.app.ui.theme.Raised
 import com.crux.app.ui.theme.Surface
-import com.crux.app.ui.theme.Void
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -102,7 +102,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Void)
+            .background(LocalVoid.current)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
