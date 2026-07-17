@@ -3,8 +3,12 @@ package com.crux.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
@@ -34,10 +38,10 @@ import com.crux.app.ui.theme.Motion
  * A task row: the hold, then the title.
  *
  * Completing a task is a small ceremony (DECISIONS.log 2026-07-17): the hold fills at once, then a
- * line draws left-to-right across the title over ~2 s while the ink fades InkHi -> InkLow. Only
+ * line draws left-to-right across the title over ~0.75 s while the ink fades InkHi -> InkLow. Only
  * after that does the row commit and sink; here we just render the state the view-model hands us.
  * [completing] is true while that draw is in flight (the task is still OPEN in the db until it lands).
- * [onToggle] null renders the hold display-only.
+ * [onToggle] null renders the hold display-only. [onOpen] (tap the title) opens the detail screen.
  */
 @Composable
 fun TaskRow(
@@ -45,6 +49,7 @@ fun TaskRow(
     modifier: Modifier = Modifier,
     completing: Boolean = false,
     onToggle: (() -> Unit)? = null,
+    onOpen: (() -> Unit)? = null,
 ) {
     val done = task.status == TaskStatus.DONE
     // one signal drives the whole ceremony: struck once the hold is tapped (completing) and stays
@@ -68,6 +73,7 @@ fun TaskRow(
     )
 
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val bodyInteraction = remember { MutableInteractionSource() }
 
     Row(
         modifier = modifier
@@ -77,14 +83,27 @@ fun TaskRow(
     ) {
         HoldCheckbox(checked = struck, onToggle = onToggle)
         Spacer(Modifier.width(Dimens.Unit * 2))
-        Text(
-            text = task.title,
-            style = CruxType.Body,
-            color = ink,
-            onTextLayout = { layout = it },
+        Box(
             modifier = Modifier
                 .weight(1f)
-                .drawWithContent {
+                .fillMaxHeight()
+                .then(
+                    if (onOpen != null) {
+                        Modifier.clickable(
+                            interactionSource = bodyInteraction,
+                            indication = null,
+                            onClick = onOpen,
+                        )
+                    } else Modifier
+                ),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                text = task.title,
+                style = CruxType.Body,
+                color = ink,
+                onTextLayout = { layout = it },
+                modifier = Modifier.drawWithContent {
                     drawContent()
                     val result = layout ?: return@drawWithContent
                     if (strike <= 0f) return@drawWithContent
@@ -109,7 +128,8 @@ fun TaskRow(
                         budget -= widths[i]
                     }
                 },
-        )
+            )
+        }
     }
 }
 

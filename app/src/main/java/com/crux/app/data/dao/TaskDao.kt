@@ -26,6 +26,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: Long): Task?
 
+    /** The task detail screen observes a single task so edits reflect live. Null once it is gone. */
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    fun observeById(id: Long): Flow<Task?>
+
     /** Midnight sweep: delete DONE tasks completed before the start of today (log row keeps the record). */
     @Query("DELETE FROM tasks WHERE status = 'DONE' AND completedAt < :startOfTodayMillis")
     suspend fun sweepDoneBefore(startOfTodayMillis: Long): Int

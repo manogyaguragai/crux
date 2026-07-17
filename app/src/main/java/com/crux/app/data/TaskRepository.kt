@@ -36,6 +36,12 @@ class TaskRepository(
     fun observeStack(): Flow<List<Task>> =
         taskDao.observeVisible().map { it.sortedWith(withinGroupComparator) }
 
+    /** A single task, observed live for the detail screen. Emits null once the task is gone. */
+    fun observeTask(id: Long): Flow<Task?> = taskDao.observeById(id)
+
+    /** Persist an edited task (detail screen). The caller supplies the fully-formed row. */
+    suspend fun updateTask(task: Task) = taskDao.update(task)
+
     /**
      * Capture: raw text becomes a title-only task. No parsing in phase 1 (that is phase 2).
      * Errors never eat input, so the caller persists the raw text as the title.

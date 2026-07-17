@@ -45,12 +45,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.crux.app.CruxApplication
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.screens.detail.TaskDetailScreen
 import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.stack.StackScreen
@@ -112,6 +115,7 @@ fun CruxApp() {
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = { CruxTabBar(nav) },
         ) { innerPadding ->
+            val openTask: (Long) -> Unit = { id -> nav.navigate("task/$id") }
             NavHost(
                 navController = nav,
                 startDestination = CruxTab.Home.route,
@@ -120,12 +124,26 @@ fun CruxApp() {
                 CruxTab.entries.forEach { tab ->
                     composable(tab.route) {
                         when (tab) {
-                            CruxTab.Home -> HomeScreen(vm)
-                            CruxTab.Stack -> StackScreen(vm)
+                            CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask)
+                            CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask)
                             CruxTab.Projects -> ProjectsScreen(projectsVm)
                             else -> EmptyTabScreen(tab)
                         }
                     }
+                }
+                composable(
+                    route = "task/{taskId}",
+                    arguments = listOf(navArgument("taskId") { type = NavType.LongType }),
+                ) { entry ->
+                    val id = entry.arguments?.getLong("taskId") ?: return@composable
+                    val detailVm: TaskDetailViewModel = viewModel(
+                        factory = TaskDetailViewModel.factory(
+                            container.taskRepository,
+                            container.projectRepository,
+                            id,
+                        ),
+                    )
+                    TaskDetailScreen(vm = detailVm, onBack = { nav.popBackStack() })
                 }
             }
         }

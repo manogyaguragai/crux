@@ -176,6 +176,24 @@ The tab is the first half of a larger idea. The next steps make it pay off: lett
 a project (the task detail screen), and then grouping the stack by project rank so the list finally
 organises itself, with the catch-all inbox always last.
 
+### milestone: a task gets a detail screen (2026-07-17)
+
+Until now a task was just a line of text. Now tapping a task opens a screen where you can shape it.
+You can rename it, file it under a project, set its priority from one to four (priority one wears the
+one bit of red the screen allows, because it is the thing that matters most), give it a due date and
+a time of day, and make it repeat, daily, on weekdays, weekly, or monthly. There is a notes field for
+anything that does not fit in a title, and a quiet line at the very bottom that records how the task
+arrived, for example "added jul 17 · typed". Later, when the app can capture by voice or read your
+shorthand, that line will say so; it is the task remembering its own history.
+
+Everything you change saves the instant you change it, and it survives leaving the screen or even
+turning the phone sideways, because the truth lives in the database, not on the screen. A couple of
+honest notes: the date and time use the phone's own standard pickers (they happen to pick up the
+app's red, so they do not look out of place), and for a weekly or monthly repeat the app quietly
+assumes the day from the due date rather than asking again, which keeps the screen simple; a proper
+day picker is on the list for later. This is the piece that unlocks the next one: now that a task can
+belong to a project, the stack can finally group itself by project.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

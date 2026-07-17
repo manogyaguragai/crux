@@ -36,7 +36,7 @@ import com.crux.app.ui.theme.Void
  * sink faded to the bottom). Grouping by project rank arrives with the projects slice.
  */
 @Composable
-fun StackScreen(vm: TasksViewModel) {
+fun StackScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit) {
     val tasks by vm.stack.collectAsStateWithLifecycle()
     val completing by vm.completingIds.collectAsStateWithLifecycle()
 
@@ -67,6 +67,7 @@ fun StackScreen(vm: TasksViewModel) {
                         task = task,
                         completing = task.id in completing,
                         onToggle = { vm.complete(task) },
+                        onOpen = { onOpenTask(task.id) },
                         // the sink: once a completion lands, the row glides to the bottom on a
                         // soft-landing spring (damping 0.8, "immediate to start, soft to land").
                         // fadeOut so a swept row dissolves rather than snapping out.

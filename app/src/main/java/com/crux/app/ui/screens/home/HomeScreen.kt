@@ -37,7 +37,7 @@ import com.crux.app.ui.theme.Void
  * The nudge count and the meta line arrive in later phase 1 slices.
  */
 @Composable
-fun HomeScreen(vm: TasksViewModel) {
+fun HomeScreen(vm: TasksViewModel, onOpenTask: (Long) -> Unit) {
     val top by vm.top3.collectAsStateWithLifecycle()
     val completing by vm.completingIds.collectAsStateWithLifecycle()
 
@@ -68,6 +68,7 @@ fun HomeScreen(vm: TasksViewModel) {
                             task = task,
                             completing = task.id in completing,
                             onToggle = { vm.complete(task) },
+                            onOpen = { onOpenTask(task.id) },
                             modifier = Modifier.animateItem(
                                 fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
                                 placementSpec = spring(
