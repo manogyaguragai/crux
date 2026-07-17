@@ -127,6 +127,31 @@ trail. This was the first real test loop: add on home, see it on the stack, chec
 come in phase 1: ranked projects (so the list groups), editing a task's details, reminders, backup,
 and settings.
 
+### milestone: the completion ceremony (2026-07-17)
+
+Ticking a task off got a moment of ceremony. Before, a task struck through and dropped to the
+bottom in one instant flick. Now the hold still fills the moment you tap it (that part must feel
+instant, so you know the tap registered), but then a line draws across the title, left to right, over
+about three-quarters of a second, while the words fade from bright to dim. It is the feeling of
+drawing a pen through a finished line on a list. Once that finishes, what happens next depends on
+where you are: on the stack the row glides down to the bottom and settles softly; on the home screen,
+where only the top three live, it simply fades away to make room for the next thing. Either way it is
+a smooth departure, never a hard snap. The five second "undo" appears at that moment, and undoing
+pulls the line back quickly. (The timing was tuned by feel over a few tries: two seconds felt like
+waiting, one second was still a touch long, three-quarters of a second is the sweet spot between
+instant and savoured.)
+
+This is the first place the app deliberately breaks one of its own motion rules. The design system
+says no animation should last more than 300 milliseconds; this one lasts a few times that. It earns
+the exception on purpose: the whole point is to make finishing a task feel earned and savoured, not
+brushed aside. It sits alongside the only other sanctioned slow motions in the app, the two "bloom"
+glows. The choice, and why it overrides the rule, is written down in `DECISIONS.log` so the deviation
+is never mistaken for a mistake.
+
+One quiet piece of care under the hood: the pause lives with the task's data, not with the screen. So
+if you tick a task and immediately swipe to another tab before the line finishes drawing, the task
+still completes. The ceremony is visual, but the commitment is real.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

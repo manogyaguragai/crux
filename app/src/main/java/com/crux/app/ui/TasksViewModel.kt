@@ -7,12 +7,17 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
+import com.crux.app.ui.theme.Motion
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -34,7 +39,28 @@ class TasksViewModel(private val tasks: TaskRepository) : ViewModel() {
     private val undoChannel = Channel<Unit>(Channel.CONFLATED)
     val undoEvents = undoChannel.receiveAsFlow()
 
+    /**
+     * Ids mid-ceremony: tapped, striking through, not yet written DONE. The rows read this to draw
+     * the strike-through in place before the task commits and sinks. Pruned the moment the db
+     * confirms DONE, so `done` takes over the same frame the id leaves and nothing flickers.
+     */
+    private val completing = MutableStateFlow<Set<Long>>(emptySet())
+    val completingIds: StateFlow<Set<Long>> = completing.asStateFlow()
+
     private var lastCompletion: Pair<Task, Long>? = null
+
+    init {
+        viewModelScope.launch {
+            tasks.observeStack().collect { list ->
+                if (completing.value.isEmpty()) return@collect
+                val landed = list.asSequence()
+                    .filter { it.status == TaskStatus.DONE }
+                    .map { it.id }
+                    .toSet()
+                if (completing.value.any { it in landed }) completing.update { it - landed }
+            }
+        }
+    }
 
     fun capture(text: String) {
         if (text.isBlank()) return
@@ -43,7 +69,12 @@ class TasksViewModel(private val tasks: TaskRepository) : ViewModel() {
 
     fun complete(task: Task) {
         if (task.status == TaskStatus.DONE) return // tapping a done hold is a no-op; undo is the reversal
+        if (task.id in completing.value) return    // ceremony already running; ignore the re-tap
+        completing.update { it + task.id }
         viewModelScope.launch {
+            // savour the strike-through in place, then commit and let it sink. runs on
+            // viewModelScope, so leaving the tab mid-ceremony still lands the completion.
+            delay(Motion.StrikeMs.toLong())
             val logId = tasks.complete(task, System.currentTimeMillis())
             lastCompletion = task to logId
             undoChannel.send(Unit)

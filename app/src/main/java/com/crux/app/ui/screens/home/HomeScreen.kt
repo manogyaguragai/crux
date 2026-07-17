@@ -1,6 +1,10 @@
 package com.crux.app.ui.screens.home
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -8,12 +12,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
@@ -22,6 +29,7 @@ import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.InkMid
+import com.crux.app.ui.theme.Motion
 import com.crux.app.ui.theme.Void
 
 /**
@@ -31,6 +39,7 @@ import com.crux.app.ui.theme.Void
 @Composable
 fun HomeScreen(vm: TasksViewModel) {
     val top by vm.top3.collectAsStateWithLifecycle()
+    val completing by vm.completingIds.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -48,9 +57,25 @@ fun HomeScreen(vm: TasksViewModel) {
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
-                    top.forEach { task ->
-                        TaskRow(task = task, onToggle = { vm.complete(task) })
+                // a lazy list so a completed task fades out as it leaves the top 3 (animateItem),
+                // instead of snapping away; Bottom keeps the rows riding low above the omnibar.
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Bottom,
+                ) {
+                    items(items = top, key = { it.id }) { task ->
+                        TaskRow(
+                            task = task,
+                            completing = task.id in completing,
+                            onToggle = { vm.complete(task) },
+                            modifier = Modifier.animateItem(
+                                fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
+                                placementSpec = spring(
+                                    dampingRatio = Motion.ReorderDamping,
+                                    visibilityThreshold = IntOffset.VisibilityThreshold,
+                                ),
+                            ),
+                        )
                     }
                 }
             }
