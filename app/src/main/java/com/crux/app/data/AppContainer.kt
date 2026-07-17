@@ -11,4 +11,6 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     val database: CruxDatabase by lazy { CruxDatabase.build(appContext) }
+
+    val taskRepository: TaskRepository by lazy { TaskRepository(database.taskDao()) }
 }

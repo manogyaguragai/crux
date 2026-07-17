@@ -12,7 +12,7 @@ composeBom = "2026.06.01"
 navigationCompose = "2.9.8"
 room = "2.8.4"
 # --- staged for later phases; versions locked now, wired when their phase arrives ---
-lifecycle = "2.11.0"           # phase 1: viewmodels
+lifecycle = "2.9.4"            # 2.10+/2.11 require compileSdk 37 + AGP 9.1; 2.9.x is the 36-gen
 work = "2.11.2"                # phase 1: midnight sweep + digests
 datastore = "1.2.1"           # phase 1: settings; phase 3: keys
 serializationJson = "1.11.0"  # phase 1: json export/import

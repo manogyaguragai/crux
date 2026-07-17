@@ -40,6 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
@@ -76,7 +77,9 @@ fun CruxApp() {
             modifier = Modifier.padding(innerPadding),
         ) {
             CruxTab.entries.forEach { tab ->
-                composable(tab.route) { EmptyTabScreen(tab) }
+                composable(tab.route) {
+                    if (tab == CruxTab.Home) HomeScreen() else EmptyTabScreen(tab)
+                }
             }
         }
     }

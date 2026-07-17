@@ -107,6 +107,16 @@ works together: build tools 8.13.2, android 36 (the current ceiling), and librar
 generation. Lesson: in android, versions must match each other, not just be individually newest.
 The specific choices are recorded in `DECISIONS.log`.
 
+### milestone: phase 1 begins, capture works (2026-07-17)
+
+The first time the app actually does something. The omnibar on home now takes what you type and
+saves it as a task, and the task appears above the bar. It saves to the real database, so it
+survives closing the app. No parsing yet (that is phase 2): whatever you type becomes the title,
+exactly as planned. Capture is never interrupted, there is no dialog, and the box clears itself so
+the next thought goes straight in. Under the hood this added the first repository (the clean
+boundary between the screen and the database) and the first view-model (which holds what the screen
+shows). Still to come in phase 1: projects, the full task list, checking things off, and reminders.
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.

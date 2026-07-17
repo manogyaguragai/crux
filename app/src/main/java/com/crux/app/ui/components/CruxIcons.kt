@@ -68,4 +68,11 @@ object CruxIcons {
             stroke("M4 13l3 5h10l3-5M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6", join = StrokeJoin.Round)
         }.build()
     }
+
+    /** the omnibar add glyph (a plus). from the dock in crux-screens-v3.html. viewBox 24. */
+    val Add: ImageVector by lazy {
+        ImageVector.Builder("add", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M12 5v14M5 12h14")
+        }.build()
+    }
 }
