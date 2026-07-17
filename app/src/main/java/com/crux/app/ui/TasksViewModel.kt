@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.CompletionResult
 import com.crux.app.data.ProjectRepository
+import com.crux.app.data.SettingsRepository
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.StackGroup
 import com.crux.app.domain.groupStack
@@ -42,11 +43,12 @@ import kotlinx.coroutines.launch
 class TasksViewModel(
     private val tasks: TaskRepository,
     private val projects: ProjectRepository,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
-    val top3: StateFlow<List<Task>> =
-        tasks.observeOpen()
-            .map { it.take(3) }
+    /** Home's open tasks, capped at the owner's configurable count (settings; default 3, max 10). */
+    val homeTasks: StateFlow<List<Task>> =
+        combine(tasks.observeOpen(), settings.homeCount) { list, count -> list.take(count) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** How many open tasks are past due right now (home's nudge count). */
@@ -144,8 +146,9 @@ class TasksViewModel(
     }
 
     companion object {
-        fun factory(tasks: TaskRepository, projects: ProjectRepository) = viewModelFactory {
-            initializer { TasksViewModel(tasks, projects) }
-        }
+        fun factory(tasks: TaskRepository, projects: ProjectRepository, settings: SettingsRepository) =
+            viewModelFactory {
+                initializer { TasksViewModel(tasks, projects, settings) }
+            }
     }
 }

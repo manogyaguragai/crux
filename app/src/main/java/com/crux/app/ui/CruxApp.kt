@@ -91,7 +91,13 @@ fun CruxApp() {
     val context = LocalContext.current
     val container = (context.applicationContext as CruxApplication).container
     val vm: TasksViewModel =
-        viewModel(factory = TasksViewModel.factory(container.taskRepository, container.projectRepository))
+        viewModel(
+            factory = TasksViewModel.factory(
+                container.taskRepository,
+                container.projectRepository,
+                container.settingsRepository,
+            ),
+        )
     val projectsVm: ProjectsViewModel =
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,9 +42,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.crux.app.data.SettingsRepository
 import com.crux.app.ui.Copy
 import com.crux.app.ui.SettingsViewModel
 import com.crux.app.ui.components.CruxIcons
@@ -148,6 +151,15 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
                 ) { vm.setFontScale(scale) }
             }
         }
+        Spacer(Modifier.height(Dimens.Unit * 5))
+        StepperRow(
+            title = Copy.SETTINGS_HOME_COUNT,
+            subtitle = Copy.SETTINGS_HOME_COUNT_SUB,
+            value = homeCount,
+            min = SettingsRepository.HOME_COUNT_MIN,
+            max = SettingsRepository.HOME_COUNT_MAX,
+            onChange = vm::setHomeCount,
+        )
         Spacer(Modifier.height(Dimens.GroupGap))
 
         // notifications (times are configurable below)
@@ -282,6 +294,62 @@ private fun TimePickerDialog(initialMinutes: Int, onDismiss: () -> Unit, onConfi
         Box(Modifier.padding(Dimens.ScreenMargin), contentAlignment = Alignment.Center) {
             TimePicker(state = state)
         }
+    }
+}
+
+/**
+ * A bounded numeric stepper: label + subtitle on the left, [− N +] on the right. The mono numeral
+ * (CruxType.Data) reads as a count, not prose. The − / + wells dim to InkLow at their bounds so the
+ * limit is felt, not enforced by a silent no-op.
+ */
+@Composable
+private fun StepperRow(
+    title: String,
+    subtitle: String,
+    value: Int,
+    min: Int,
+    max: Int,
+    onChange: (Int) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = CruxType.Body, color = InkHi)
+            Text(subtitle, style = CruxType.Secondary, color = InkMid)
+        }
+        StepButton(icon = CruxIcons.Minus, enabled = value > min) { onChange(value - 1) }
+        Text(
+            text = "$value",
+            style = CruxType.Data,
+            color = InkHi,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(min = 28.dp).padding(horizontal = Dimens.Unit),
+        )
+        StepButton(icon = CruxIcons.Add, enabled = value < max) { onChange(value + 1) }
+    }
+}
+
+@Composable
+private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .background(Surface)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (enabled) InkMid else InkLow.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
