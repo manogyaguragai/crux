@@ -120,6 +120,7 @@ object Copy {
     const val REVIEW_FILE = "file it"
     const val REVIEW_DISMISS = "not now"
     const val REVIEW_EMPTY_INBOX = "inbox is clear. nothing to sort."
+    const val REVIEW_SECTION_PRIORITY = "reprioritize"
 
     // capture queue (phase 3, owner request). proposed, pending owner approval.
     const val QUEUE_TITLE = "queue"

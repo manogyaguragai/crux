@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.AppContainer
+import com.crux.app.domain.NudgeUrgency
+import com.crux.app.domain.priorityNudges
 import com.crux.app.domain.model.ParsedBy
 import com.crux.app.domain.model.Task
 import com.crux.app.intelligence.KnownProject
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -28,6 +31,16 @@ data class ReviewProposal(
     val task: Task,
     val projectId: Long,
     val projectName: String,
+    val reason: String,
+)
+
+/**
+ * One deterministic priority nudge: this low-priority task is urgent, so propose bumping it to
+ * [targetPriority]. Computed by rules (no LLM), so it stands even with AI off; [reason] is the plain why.
+ */
+data class PriorityNudge(
+    val task: Task,
+    val targetPriority: Int,
     val reason: String,
 )
 
@@ -75,6 +88,37 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
 
     // Rejected task ids, so "not now" keeps a suggestion from reappearing on the next scan this session.
     private val dismissed = mutableSetOf<Long>()
+
+    // Task ids the user waved off from the reprioritize list this session (kept out of the live flow).
+    private val skippedNudges = MutableStateFlow<Set<Long>>(emptySet())
+
+    /**
+     * Deterministic priority nudges: open tasks left at a low priority (p3/p4) whose due date has become
+     * urgent (see [priorityNudges]). Pure rules (no LLM, no scan), so this list is live and stands even
+     * with AI off; here we just attach the plain-language reason copy for each urgency.
+     */
+    val nudges: StateFlow<List<PriorityNudge>> =
+        combine(tasks.observeOpen(), skippedNudges) { open, skip ->
+            val zone = ZoneId.systemDefault()
+            priorityNudges(open, skip, Instant.now(), LocalDate.now(zone), zone).map { s ->
+                val reason = when (s.urgency) {
+                    NudgeUrgency.OVERDUE -> "overdue, still p${s.task.priority}"
+                    NudgeUrgency.DUE_TODAY -> "due today, still p${s.task.priority}"
+                    NudgeUrgency.DUE_TOMORROW -> "due tomorrow, still p${s.task.priority}"
+                }
+                PriorityNudge(s.task, s.targetPriority, reason)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Apply the nudge: raise the task's priority. A manual/rules act, so provenance is left untouched. */
+    fun acceptNudge(nudge: PriorityNudge) {
+        viewModelScope.launch { tasks.updateTask(nudge.task.copy(priority = nudge.targetPriority)) }
+    }
+
+    /** Wave off a nudge; it stays at its priority and will not reappear this session. */
+    fun skipNudge(nudge: PriorityNudge) {
+        skippedNudges.update { it + nudge.task.id }
+    }
 
     fun scan() {
         if (_scanning.value) return

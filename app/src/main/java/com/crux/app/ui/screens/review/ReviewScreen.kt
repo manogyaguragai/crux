@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
+import com.crux.app.ui.PriorityNudge
 import com.crux.app.ui.ReviewProposal
 import com.crux.app.ui.ReviewViewModel
 import com.crux.app.ui.components.TabHeader
@@ -41,10 +42,10 @@ import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Surface
 
 /**
- * The review tab (phase 3): the AI's batched proposals, accepted or rejected one tap at a time, never
- * applied silently. This phase's proposal is project inference — the model reads the inbox pile and
- * guesses a home for each unfiled task. Off by default: with AI disabled the tab just says how to turn
- * it on, and even with AI on nothing runs until the owner taps "sort the inbox".
+ * The review tab (phase 3): batched proposals, accepted or rejected one tap at a time, never applied
+ * silently. Two proposal types: (1) REPRIORITIZE — deterministic priority nudges (a low-priority task
+ * gone urgent), pure rules so the list is live and shows even with AI off; (2) SORT THE INBOX — AI
+ * project inference over the unfiled pile, gated on AI being on + keyed and run only on "sort the inbox".
  */
 @Composable
 fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
@@ -54,6 +55,7 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
     val scanned by vm.scanned.collectAsStateWithLifecycle()
     val scanFailed by vm.scanFailed.collectAsStateWithLifecycle()
     val inboxCount by vm.inboxCount.collectAsStateWithLifecycle()
+    val nudges by vm.nudges.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -65,30 +67,47 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
         TabHeader(title = Copy.REVIEW_TITLE, onOpenSettings = onOpenSettings)
         Spacer(Modifier.height(Dimens.GroupGap))
 
-        when {
-            !aiActive -> Centered(Copy.REVIEW_AI_OFF)
-            inboxCount == 0 && proposals.isEmpty() -> Centered(Copy.REVIEW_EMPTY_INBOX)
-            else -> {
-                ScanButton(
-                    label = "${Copy.REVIEW_SCAN} · $inboxCount",
-                    enabled = !scanning && inboxCount > 0,
-                    onClick = vm::scan,
-                )
-                Spacer(Modifier.height(Dimens.GroupGap))
-                when {
-                    scanning -> Centered(Copy.REVIEW_SCANNING)
-                    scanFailed -> Centered(Copy.AI_OFFLINE)
-                    proposals.isNotEmpty() -> LazyColumn(
-                        Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(Dimens.Unit * 3),
-                    ) {
-                        items(items = proposals, key = { it.task.id }) { p ->
-                            ProposalCard(p, onFile = { vm.accept(p) }, onDismiss = { vm.dismiss(p) })
-                        }
-                    }
-                    scanned -> Centered(Copy.EMPTY_REVIEW)
-                    else -> Unit // initial: the scan button is the only prompt
+        val hasNudges = nudges.isNotEmpty()
+        val inboxActive = aiActive && (inboxCount > 0 || proposals.isNotEmpty() || scanning || scanned)
+
+        // neither section has anything: one calm centered line
+        if (!hasNudges && !inboxActive) {
+            Centered(if (!aiActive) Copy.REVIEW_AI_OFF else Copy.REVIEW_EMPTY_INBOX)
+            return@Column
+        }
+
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(Dimens.Unit * 3),
+        ) {
+            // section: reprioritize (deterministic, always live)
+            if (hasNudges) {
+                item(key = "hdr-priority") { SectionLabel(Copy.REVIEW_SECTION_PRIORITY) }
+                items(items = nudges, key = { "n-${it.task.id}" }) { n ->
+                    NudgeCard(n, onBump = { vm.acceptNudge(n) }, onSkip = { vm.skipNudge(n) })
                 }
+            }
+            // section: sort the inbox (AI)
+            if (aiActive) {
+                item(key = "sort") {
+                    if (hasNudges) Spacer(Modifier.height(Dimens.Unit * 2))
+                    ScanButton(
+                        label = "${Copy.REVIEW_SCAN} · $inboxCount",
+                        enabled = !scanning && inboxCount > 0,
+                        onClick = vm::scan,
+                    )
+                }
+                when {
+                    scanning -> item(key = "scanning") { PadCentered(Copy.REVIEW_SCANNING) }
+                    scanFailed -> item(key = "failed") { PadCentered(Copy.AI_OFFLINE) }
+                    proposals.isNotEmpty() -> items(items = proposals, key = { "p-${it.task.id}" }) { p ->
+                        ProposalCard(p, onFile = { vm.accept(p) }, onDismiss = { vm.dismiss(p) })
+                    }
+                    scanned -> item(key = "scanned") { PadCentered(Copy.EMPTY_REVIEW) }
+                }
+            } else if (hasNudges) {
+                // AI is off but we did show nudges: a quiet pointer at the inbox sort
+                item(key = "aioff") { PadCentered(Copy.REVIEW_AI_OFF) }
             }
         }
     }
@@ -98,6 +117,48 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
 private fun Centered(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = text, style = CruxType.Passage, color = InkMid, textAlign = TextAlign.Center)
+    }
+}
+
+/** An inline centered line (does not steal the whole screen — used inside the scrolling sections). */
+@Composable
+private fun PadCentered(text: String) {
+    Box(
+        Modifier.fillMaxWidth().padding(vertical = Dimens.GroupGap),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, style = CruxType.Passage, color = InkMid, textAlign = TextAlign.Center)
+    }
+}
+
+/** A quiet section eyebrow over a group of cards. */
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+}
+
+/**
+ * A priority-nudge card: the task, the plain reason it is urgent, and the two choices. The filled pill
+ * shows the outcome it applies ("→ p1"), so tapping it is self-explanatory; "not now" waves it off.
+ */
+@Composable
+private fun NudgeCard(nudge: PriorityNudge, onBump: () -> Unit, onSkip: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.RadiusCard))
+            .background(Surface)
+            .padding(Dimens.Unit * 4),
+    ) {
+        Text(nudge.task.title, style = CruxType.Body, color = InkHi)
+        Spacer(Modifier.height(Dimens.Unit * 2))
+        Text(nudge.reason, style = CruxType.Secondary, color = InkMid)
+        Spacer(Modifier.height(Dimens.Unit * 3))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Pill(Copy.REVIEW_DISMISS, filled = false, onClick = onSkip)
+            Spacer(Modifier.width(Dimens.Unit * 2))
+            Pill("→ p${nudge.targetPriority}", filled = true, onClick = onBump)
+        }
     }
 }
 
