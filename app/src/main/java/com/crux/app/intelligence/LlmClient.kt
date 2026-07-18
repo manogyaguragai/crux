@@ -1,6 +1,5 @@
 package com.crux.app.intelligence
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -77,12 +76,10 @@ class LlmClient {
                 return if (content != null) {
                     Attempt.Ok(content)
                 } else {
-                    Log.w(TAG, "chat: 200 but no content from ${provider.id}/$model; raw=${text.take(300)}")
                     Attempt.Retry(AiErrorKind.FAILED)
                 }
             }
             val err = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            Log.w(TAG, "chat: HTTP $code from ${provider.id} model=$model body=${err.take(400)}")
             // A bad key is terminal (no other model helps). Everything else advances to the next
             // candidate — on OpenRouter's free pool a different model routes through a different,
             // un-throttled upstream, so a 429/5xx on one model is often fine on the next.
@@ -93,8 +90,7 @@ class LlmClient {
                 code == 429 -> Attempt.Retry(AiErrorKind.RATE_LIMIT)
                 else -> Attempt.Retry(AiErrorKind.FAILED)
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "chat: exception talking to ${provider.id} at ${provider.endpoint}", e)
+        } catch (_: Exception) {
             // No network / timeout / TLS: trying the other models would just be more timeouts, so stop.
             return Attempt.Stop(AiErrorKind.NETWORK)
         } finally {
@@ -132,6 +128,5 @@ class LlmClient {
     private companion object {
         const val TIMEOUT_MS = 8_000
         const val MAX_TOKENS = 256
-        const val TAG = "CruxAI"
     }
 }

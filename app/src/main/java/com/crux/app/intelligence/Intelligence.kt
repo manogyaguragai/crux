@@ -1,6 +1,5 @@
 package com.crux.app.intelligence
 
-import android.util.Log
 import com.crux.app.data.SecureKeyStore
 import com.crux.app.data.SettingsRepository
 import com.crux.app.domain.model.Task
@@ -90,11 +89,9 @@ class Intelligence(
     ): LlmOutcome {
         val provider = activeProvider()
         if (provider == null) {
-            Log.i(TAG, "interpret: inactive (AI off / no provider / no key)")
             return LlmOutcome.Inactive
         }
         if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) {
-            Log.w(TAG, "interpret: daily budget spent")
             _notices.tryEmit(AiErrorKind.RATE_LIMIT)
             return LlmOutcome.Unavailable
         }
@@ -110,7 +107,6 @@ class Intelligence(
             }
             is ChatResult.Ok -> {
                 val action = parseLlmAction(result.content)
-                Log.i(TAG, "interpret: \"$input\" -> raw=${result.content.take(300)} parsed=${action?.javaClass?.simpleName}")
                 if (action != null) LlmOutcome.Acted(action) else {
                     _notices.tryEmit(AiErrorKind.FAILED) // a 200 we could not read is still a fallback
                     LlmOutcome.Unavailable
@@ -145,8 +141,6 @@ class Intelligence(
             is ChatResult.Ok -> parseSuggestions(result.content, inbox.map { it.id }.toSet(), projects.map { it.name }.toSet())
         }
     }
-
-    private companion object { const val TAG = "CruxAI" }
 
     private fun parseSuggestions(raw: String, validIds: Set<Long>, validProjects: Set<String>): List<ProjectSuggestion> {
         val start = raw.indexOf('{')
