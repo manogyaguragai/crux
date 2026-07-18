@@ -387,6 +387,37 @@ reading the phone's own live log while driving the app, which is how the quota a
 above were found and named rather than guessed at. Some temporary logging is still in place for that
 reason and will be taken out before any wider release.
 
+### milestone: the app learns to breathe, and matches its own drawings (2026-07-18)
+
+The last big piece of phase four is not a feature you use, it is the way the whole thing moves and
+sits. Two jobs, done together.
+
+The first is motion. The brand book always promised exactly two loops in the entire app, and both
+belong to the bloom, the soft red glow behind the capture bar on the home screen. Until now that glow
+was painted once and held still. Now it breathes: at rest its light drifts up and down by a few
+percent over six slow seconds, and the moment you hold the mic to speak it draws in tighter and
+quickens to match the act of talking. Lists learned a smaller motion too. The first time you open the
+stack in a session, the rows arrive in a gentle downhill cascade, top one first, each a beat behind
+the last, then settle. It plays once and never nags you again on a tab you return to, and if you have
+turned system animations off, it respectfully does nothing but the plain fade. The re-order settle, the
+soft spring when a row changes place, was already correct from earlier work, so it was left alone.
+
+The second job was honesty with the original drawings. Early in the project a designer drew all eight
+screens as static mockups, and over months of building, the real screens had drifted from them in
+small ways: a title missing its little eyebrow line and its running count, group headers set in the
+wrong typeface, project ranks shown as plain numbers instead of the single filled garnet chip the
+design reserves for rank one, the task detail page stacking its fields vertically instead of the neat
+two-column rows the mockup laid out. So every screen was put side by side with its drawing and the gaps
+were closed, one by one, until a screenshot of each surface reads like the mockup it came from. A few
+pieces were deliberately left for later because building them now would either mislead or balloon the
+work: a search toggle with nothing behind it would be a lie, so it waits for real search; and a couple
+of buttons the mockups show, like carrying the whole overdue pile to today, need new plumbing under the
+hood before they can do what they promise, so they are noted and parked rather than faked.
+
+Everything here was checked the usual way, installed on the phone and walked through screen by screen
+before handing back. (The temporary logging mentioned in the phase-three note above has since been
+removed, as promised, once the AI paths were trusted.)
+
 ## 5. how this journal works
 
 - one section per milestone, newest at the bottom of section 4.
