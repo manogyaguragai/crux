@@ -53,12 +53,13 @@ A lot was decided before building, so the build itself has no guesswork. All of 
 The app is built in strict phases. Nothing from a later phase is pulled forward, even when it
 looks easy. The point is to prove the spine before adding anything clever.
 
-- **phase 0, foundation.** the empty skeleton that builds and runs. (this is where we are.)
+- **phase 0, foundation.** the empty skeleton that builds and runs.
 - **phase 1, the spine (no AI).** real capture, projects, the task list, ticking, notifications,
   backup. daily-drivable for two weeks before anything else.
 - **phase 2, deterministic intelligence.** typed shortcuts like `#project`, `!p1`, dates, and
   recurrence, all offline, no AI.
 - **phase 3, the AI layer.** natural language parsing with a visible, correctable result.
+  (this is where we are, 2026-07-18.)
 - **phase 4, voice and polish.**
 
 ## 4. what has been executed so far
@@ -303,6 +304,88 @@ project, a "!" for a priority, a date in plain words, and to show you what it un
 correct it, all still without a line of network code. The groundwork for it, a table of example
 phrases and the answers they should produce, has been sitting in the tests since the very first
 milestone, waiting. That is where the next chapter begins.
+
+### milestone: phase 2, crux learns to read your shorthand (2026-07-18)
+
+Phase two taught crux to understand the shorthand you already type, still with no network anywhere.
+Type "sov deck tomorrow 2pm #growbydata !p1" and the app pulls it apart as you write: it finds the
+project after the "#", the priority after the "!", and the date and time in plain words, and shows
+each thing it found as a small neutral chip above the box. If it reads one wrong, you tap that chip to
+dismiss it and those words simply fall back into the title, no retyping. An unfamiliar "#tag" offers
+to become a new project right there on capture. All of this is one small, pure piece of logic with no
+knowledge of the phone or the screen, so it is covered by the table of example phrases that had been
+waiting in the tests since the very first milestone. Numeric slash dates like "5/1" are deliberately
+left alone, because "may the first" and "the fifth of january" cannot be told apart and guessing wrong
+would quietly move your task.
+
+Three more things arrived with it. A repeating task now spawns its next copy the moment you finish the
+current one, rolling forward without ever piling up a backlog. The "N overdue" count on home became a
+tappable pile showing just the past-due tasks. And the stack tab gained a "week" view, a calm
+seven-day agenda beside the grouped list. Plus two the owner asked for: home can show any number of
+tasks from one to ten, not only three, and the capture bar now slides out of the way as you scroll
+down through a long list and springs back as you scroll up. With this, everything the app does is
+still entirely offline. The next chapter is the first that is not.
+
+### milestone: phase 3, the optional AI layer arrives (2026-07-18)
+
+This is the big one, and the first time crux talks to the internet at all, always because you asked
+it to, never on its own. Settings gained an "intelligence" section with an "ai assist" switch, off by
+default. Turn it on and the app asks for a key: you choose a provider and paste your own, and it is
+stored encrypted on the phone, never in the code and never shipped with the app. With it on, two new
+things become possible.
+
+First, the model fills the gaps your shorthand left. If you did not name a project but it can tell
+which one a task belongs to, it files it there, only ever a project you already have, never one it
+invents, and it marks anything it touched as its own guess. Your own words are always kept as the
+title; the model never rewrites what you wrote. Second, command mode: you can type "tick the sov
+deck", "push the vendor call to friday", or "what is due today", and the app does it, matching the
+task against your own list on the phone so a wrong guess can never touch the wrong thing.
+
+The rule that shaped the entire layer: with AI switched off, nothing changes. The deterministic core
+still runs first and always; the model only ever adds to what the rules already found, and if a call
+fails for any reason the app carries on with the rules alone. A new "review" tab puts the model to
+work on the inbox: ask it to sort, and it proposes a home for each unfiled task with a one-line
+reason, which you accept or wave off, one tap at a time.
+
+### milestone: finding a key that actually works, and the AI light (2026-07-18)
+
+The plan had assumed a free Google (Gemini) key. Reality was messier, and it is worth writing down.
+My ChatGPT key had no credit on it. My freshly-made Gemini key turned out to be shut out of the free
+tier in my region unless I attach a card, which I did not want to do. The fix was to add a third
+choice, OpenRouter, whose free models genuinely work with no card at all, and to make the app tougher:
+free models come and go and get busy, so the app now keeps a short ordered list of them and quietly
+steps to the next one if any is unavailable. With an OpenRouter key pasted in, the whole chain worked
+end to end for the first time, and "tick water plants" ticked it off.
+
+Alongside the providers, a small light. Next to the settings gear now sits a mark shaped like the
+app's own red bloom, not a generic robot or a sparkle. It sits quiet grey with a line struck through
+it when AI is off, glows a steady ember when it is on, and breathes softly while it is thinking. When
+a call fails, a short calm message drifts out of it saying what went wrong, out of quota, rate
+limited, offline, and that the app has fallen back to its rules. Tapping the light jumps straight to
+the AI part of settings.
+
+### milestone: a queue, so capture never waits (2026-07-18)
+
+The one rough edge of the AI layer was speed. A model call takes a second or two, and when you have
+five things to empty out of your head, waiting between each one breaks the flow. So capture stopped
+waiting. The instant you fire a line, it flies up into a new queue mark beside the AI light, a small
+chip that shoots into place, and a worker behind the scenes handles it while you type the next. Fire
+ten in a row and they line up and get done one at a time. Tap the queue mark to see the list, each
+line with its state: queued, working, added, or, if a command could not be matched to a task, a plain
+red note of why. Swipe a line left to drop it, right to try it again. And if you close the app while
+the queue is still going, the work is remembered and finishes anyway.
+
+Two smaller fixes rode along in the same stretch. The AI light is now tappable, and it lands you on
+the AI settings already scrolled into view. And a nagging navigation bug is gone: tapping a tab while
+you were deep in a pushed screen like settings used to do nothing; now it takes you to that tab, as it
+always should have.
+
+A note on how these were tested, since phase three is the first part that can fail in ways the phone
+cannot show on its own: because the app quietly falls back to its rules whenever a call does not work,
+a broken key or a bad address looks exactly like everything being fine. So each step was checked by
+reading the phone's own live log while driving the app, which is how the quota and region problems
+above were found and named rather than guessed at. Some temporary logging is still in place for that
+reason and will be taken out before any wider release.
 
 ## 5. how this journal works
 

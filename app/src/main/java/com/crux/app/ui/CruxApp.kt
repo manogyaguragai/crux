@@ -49,6 +49,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.components.LocalAiPresence
+import com.crux.app.ui.components.LocalOpenAiSettings
+import com.crux.app.ui.components.LocalQueueBar
+import com.crux.app.ui.components.QueueBar
+import com.crux.app.ui.components.QueueDropdown
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -113,6 +118,7 @@ fun CruxApp() {
                 container.projectRepository,
                 container.settingsRepository,
                 container.intelligence,
+                container.captureQueue,
             ),
         )
     val projectsVm: ProjectsViewModel =
@@ -122,6 +128,11 @@ fun CruxApp() {
     val aiStatusVm: AiStatusViewModel = viewModel(factory = AiStatusViewModel.factory(container))
     val aiPresence by aiStatusVm.presence.collectAsStateWithLifecycle()
     val aiNotice by aiStatusVm.notice.collectAsStateWithLifecycle()
+    val queueVm: QueueViewModel = viewModel(factory = QueueViewModel.factory(container))
+    val queueActive by queueVm.activeCount.collectAsStateWithLifecycle()
+    val queueFailed by queueVm.hasFailed.collectAsStateWithLifecycle()
+    val queueItems by queueVm.items.collectAsStateWithLifecycle()
+    var queueOpen by remember { mutableStateOf(false) }
     // hold the last message so it stays legible through the bubble's exit animation
     var lastNotice by remember { mutableStateOf("") }
     LaunchedEffect(aiNotice) { aiNotice?.let { lastNotice = it } }
@@ -158,7 +169,11 @@ fun CruxApp() {
         }
     }
 
-    CompositionLocalProvider(LocalAiPresence provides aiPresence) {
+    CompositionLocalProvider(
+        LocalAiPresence provides aiPresence,
+        LocalOpenAiSettings provides { nav.navigate("settings?focus=ai") },
+        LocalQueueBar provides QueueBar(queueActive, queueFailed) { queueOpen = true },
+    ) {
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             // imePadding lifts the whole shell (tab bar + the omnibar riding above it) above the
@@ -202,11 +217,15 @@ fun CruxApp() {
                 composable("overdue") {
                     OverdueScreen(vm = vm, onBack = { nav.popBackStack() }, onOpenTask = openTask)
                 }
-                composable("settings") {
+                composable(
+                    route = "settings?focus={focus}",
+                    arguments = listOf(navArgument("focus") { type = NavType.StringType; defaultValue = "" }),
+                ) { entry ->
                     SettingsScreen(
                         vm = settingsVm,
                         onBack = { nav.popBackStack() },
                         onOpenHistory = { nav.navigate("history") },
+                        focusAi = entry.arguments?.getString("focus") == "ai",
                     )
                 }
                 composable("history") {
@@ -241,6 +260,32 @@ fun CruxApp() {
                 Spacer(Modifier.width(Dimens.Unit * 2))
                 Text(lastNotice, style = CruxType.Secondary, color = InkHi)
             }
+        }
+        // the capture-queue dropdown: a scrim to dismiss, then the panel growing from the icon
+        if (queueOpen) {
+            val scrimInteraction = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clickable(interactionSource = scrimInteraction, indication = null) { queueOpen = false },
+            )
+        }
+        AnimatedVisibility(
+            visible = queueOpen,
+            enter = fadeIn() + scaleIn(initialScale = 0.9f, transformOrigin = TransformOrigin(1f, 0f)),
+            exit = fadeOut() + scaleOut(targetScale = 0.9f, transformOrigin = TransformOrigin(1f, 0f)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 52.dp, end = Dimens.ScreenMargin),
+        ) {
+            QueueDropdown(
+                items = queueItems,
+                onClose = { queueOpen = false },
+                onRemove = queueVm::remove,
+                onRetry = queueVm::retry,
+                onClearFinished = queueVm::clearFinished,
+            )
         }
         // the undo snackbar rides at the top so it never blocks the omnibar or capture
         SnackbarHost(
@@ -282,10 +327,15 @@ private fun CruxTabBar(nav: NavController) {
                     selected = currentRoute == tab.route,
                     onClick = {
                         if (currentRoute != tab.route) {
+                            // If we're leaving a PUSHED screen (settings/overdue/history/detail), don't
+                            // save or restore that stack — otherwise a pushed screen sitting on top of a
+                            // non-start tab gets restored right back, and the tab looks unresponsive.
+                            // Between actual tabs, keep save/restore so each tab holds its own state.
+                            val onTab = CruxTab.entries.any { it.route == currentRoute }
                             nav.navigate(tab.route) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = onTab }
                                 launchSingleTop = true
-                                restoreState = true
+                                restoreState = onTab
                             }
                         }
                     },

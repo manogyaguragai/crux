@@ -121,6 +121,14 @@ object Copy {
     const val REVIEW_DISMISS = "not now"
     const val REVIEW_EMPTY_INBOX = "inbox is clear. nothing to sort."
 
+    // capture queue (phase 3, owner request). proposed, pending owner approval.
+    const val QUEUE_TITLE = "queue"
+    const val QUEUE_EMPTY = "nothing queued. fire away."
+    const val QUEUE_CLEAR = "clear finished"
+    const val QUEUE_PENDING = "queued"
+    const val QUEUE_WORKING = "working…"
+    const val QUEUE_ADDED = "added"
+
     // task detail (pushed screen). Field labels are lowercase eyebrows; proposed in phase 1
     // (logged in DECISIONS.log), pending owner approval.
     const val DETAIL_TITLE_PLACEHOLDER = "untitled"

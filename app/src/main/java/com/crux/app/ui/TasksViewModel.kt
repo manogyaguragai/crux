@@ -8,6 +8,7 @@ import com.crux.app.data.CompletionResult
 import com.crux.app.data.ProjectRepository
 import com.crux.app.data.SettingsRepository
 import com.crux.app.data.TaskRepository
+import com.crux.app.data.queue.CaptureQueue
 import com.crux.app.domain.StackGroup
 import com.crux.app.domain.WeekDay
 import com.crux.app.domain.groupStack
@@ -57,6 +58,7 @@ class TasksViewModel(
     private val projects: ProjectRepository,
     private val settings: SettingsRepository,
     private val intelligence: Intelligence,
+    private val captureQueue: CaptureQueue,
 ) : ViewModel() {
 
     /** Home's open tasks, capped at the owner's configurable count (settings; default 3, max 10). */
@@ -141,30 +143,14 @@ class TasksViewModel(
      * if the title ends up empty (a line of nothing but tokens) we keep the raw text so nothing is
      * lost. Capture never fails.
      */
+    /**
+     * Capture is now instant: the raw line goes straight onto the capture queue and a background worker
+     * runs the whole pipeline (rules + optional LLM, then add or command) one item at a time. This lets
+     * the user fire many lines in quick succession without waiting on the slow LLM call; the queue icon
+     * shows progress and any per-item errors. The heavy lifting lives in data/queue/CaptureProcessor.
+     */
     fun capture(text: String, dismissed: Set<ParseField> = emptySet()) {
-        if (text.isBlank()) return
-        viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val zone = ZoneId.systemDefault()
-            val today = LocalDate.now(zone)
-            val rules = parse(text, today, knownProjects.value, dismissed)
-            // The LLM step runs only when AI is on and keyed; when it is off (Inactive) this is exactly
-            // the phase-2 behavior. When it was meant to run but the call failed (Unavailable — bad
-            // quota, no network), we still file the line on rules but tell the user AI fell back, so a
-            // command that "did nothing" is never silent. AI never rewrites the user's words.
-            when (val outcome = intelligence.interpret(text, today, zone, knownProjects.value)) {
-                is LlmOutcome.Acted -> when (val action = outcome.action) {
-                    is LlmAction.Complete -> handleComplete(action.query)
-                    is LlmAction.Delete -> handleDelete(action.query)
-                    is LlmAction.Reschedule -> handleReschedule(action, today, zone)
-                    is LlmAction.Query -> handleQuery(action.question, zone)
-                    is LlmAction.Add -> addTask(text, rules, action, now, zone)
-                }
-                // Unavailable (call failed) and Inactive (AI off) both just file on rules. The AI status
-                // icon shows the "why" for Unavailable via its own notice, so no snackbar here.
-                LlmOutcome.Unavailable, LlmOutcome.Inactive -> addTask(text, rules, null, now, zone)
-            }
-        }
+        captureQueue.enqueue(text, dismissed)
     }
 
     /**
@@ -323,8 +309,9 @@ class TasksViewModel(
             projects: ProjectRepository,
             settings: SettingsRepository,
             intelligence: Intelligence,
+            captureQueue: CaptureQueue,
         ) = viewModelFactory {
-            initializer { TasksViewModel(tasks, projects, settings, intelligence) }
+            initializer { TasksViewModel(tasks, projects, settings, intelligence, captureQueue) }
         }
     }
 }

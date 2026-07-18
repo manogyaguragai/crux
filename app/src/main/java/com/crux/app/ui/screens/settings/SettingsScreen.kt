@@ -43,11 +43,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.ImeAction
@@ -83,7 +87,12 @@ import kotlin.math.abs
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () -> Unit) {
+fun SettingsScreen(
+    vm: SettingsViewModel,
+    onBack: () -> Unit,
+    onOpenHistory: () -> Unit,
+    focusAi: Boolean = false,
+) {
     val deep by vm.deepMode.collectAsStateWithLifecycle()
     val fontScale by vm.fontScale.collectAsStateWithLifecycle()
     val homeCount by vm.homeCount.collectAsStateWithLifecycle()
@@ -103,6 +112,22 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
         if (purgeArmed) {
             kotlinx.coroutines.delay(3000)
             purgeArmed = false
+        }
+    }
+
+    // When opened from the AI status icon, scroll the intelligence section near the top. We measure in
+    // ROOT (window) coordinates to sidestep the scroll container's internal layout nodes: the section's
+    // content offset = (aiTop - columnTop on screen) + current scroll. One-shot via didFocus.
+    val scrollState = rememberScrollState()
+    var columnTop by remember { mutableStateOf(0f) }
+    var aiTop by remember { mutableStateOf(0f) }
+    // Keyed ONLY on focusAi: wait (via snapshotFlow) for the section to be laid out, then scroll once.
+    // Keying on the measured positions would relaunch — and cancel — the animation as they settle.
+    LaunchedEffect(focusAi) {
+        if (focusAi) {
+            val top = snapshotFlow { aiTop }.first { it > 0f }
+            val target = (top - columnTop + scrollState.value - 32f).coerceAtLeast(0f)
+            scrollState.animateScrollTo(target.toInt())
         }
     }
 
@@ -129,7 +154,8 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
         Modifier
             .fillMaxSize()
             .background(LocalVoid.current)
-            .verticalScroll(rememberScrollState())
+            .onGloballyPositioned { columnTop = it.positionInRoot().y }
+            .verticalScroll(scrollState)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.Unit * 2))
@@ -209,7 +235,10 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
 
         // intelligence (the optional AI layer; off by default). Toggling on with no key opens the
         // BYOK sheet rather than latching the switch, so "on" always means "actually working".
-        SectionLabel(Copy.SETTINGS_AI)
+        SectionLabel(
+            Copy.SETTINGS_AI,
+            Modifier.onGloballyPositioned { aiTop = it.positionInRoot().y },
+        )
         ToggleRow(
             title = Copy.SETTINGS_AI_ASSIST,
             subtitle = if (aiHasKey && aiProvider != null) {
@@ -575,8 +604,8 @@ private fun minutesLabel(minutes: Int): String =
     LocalTime.of(minutes / 60, minutes % 60).format(MinuteFmt).lowercase(Locale.ENGLISH)
 
 @Composable
-private fun SectionLabel(label: String) {
-    Text(label.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+private fun SectionLabel(label: String, modifier: Modifier = Modifier) {
+    Text(label.uppercase(), style = CruxType.Eyebrow, color = InkLow, modifier = modifier)
     Spacer(Modifier.height(Dimens.Unit * 3))
 }
 

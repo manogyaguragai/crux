@@ -54,6 +54,8 @@ fun TabHeader(
         Spacer(Modifier.weight(1f))
         trailing()
         Spacer(Modifier.width(Dimens.Unit * 2))
+        QueueIcon()
+        Spacer(Modifier.width(Dimens.Unit * 2))
         AiStatusIcon()
         Spacer(Modifier.width(Dimens.Unit * 2))
         SettingsGear(onClick = onOpenSettings)

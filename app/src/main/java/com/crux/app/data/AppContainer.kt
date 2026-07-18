@@ -1,6 +1,8 @@
 package com.crux.app.data
 
 import android.content.Context
+import com.crux.app.data.queue.CaptureProcessor
+import com.crux.app.data.queue.CaptureQueue
 import com.crux.app.intelligence.Intelligence
 import com.crux.app.intelligence.LlmClient
 import com.crux.app.notifications.NotificationScheduler
@@ -40,6 +42,14 @@ class AppContainer(context: Context) {
         Intelligence(settingsRepository, secureKeyStore, LlmClient())
     }
 
+    /** The autonomous capture pipeline (rules + optional LLM), run by the queue worker off the UI. */
+    val captureProcessor: CaptureProcessor by lazy {
+        CaptureProcessor(taskRepository, projectRepository, intelligence)
+    }
+
+    /** The persisted capture queue: omnibar submissions land here and drain one by one in the background. */
+    val captureQueue: CaptureQueue by lazy { CaptureQueue(appContext) }
+
     /** Re-apply the daily digest schedule after a notification setting changes. */
     fun rescheduleNotifications(prefs: NotificationPrefs) {
         NotificationScheduler.reschedule(appContext, prefs)
@@ -53,6 +63,7 @@ class AppContainer(context: Context) {
         withContext(Dispatchers.IO) {
             database.clearAllTables()
             secureKeyStore.clear() // the stored api key is data too; the reset must wipe it
+            captureQueue.clear()   // drop any pending/finished queued captures
         }
         settingsRepository.clear()
     }

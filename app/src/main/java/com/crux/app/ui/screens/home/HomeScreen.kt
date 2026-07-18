@@ -1,5 +1,7 @@
 package com.crux.app.ui.screens.home
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,35 +32,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
 import com.crux.app.ui.components.AiStatusIcon
 import com.crux.app.ui.components.Omnibar
+import com.crux.app.ui.components.QueueIcon
 import com.crux.app.ui.components.SettingsGear
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
+import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Motion
+import com.crux.app.ui.theme.Raised
+import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Home: the omnibar riding low, the open tasks above it (data-model.md). How many rows show is the
@@ -87,6 +102,29 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val imeVisible = WindowInsets.isImeVisible
+
+    // The "skyrocket into the queue" animation: on submit, a chip of the line flies from the omnibar up
+    // to the queue icon along a gentle arc, shrinking + fading, then the icon pops. Positions are in
+    // root coords; the flyer overlay lives in this screen's Box, so we subtract the Box's own origin.
+    val scope = rememberCoroutineScope()
+    var rootOffset by remember { mutableStateOf(Offset.Zero) }
+    var queueIconCenter by remember { mutableStateOf(Offset.Zero) }
+    var omnibarAnchor by remember { mutableStateOf(Offset.Zero) }
+    val flyers = remember { mutableStateListOf<Flyer>() }
+    val iconPop = remember { Animatable(1f) }
+    var flyerSeq by remember { mutableStateOf(0L) }
+    fun launchFly(text: String) {
+        if (queueIconCenter == Offset.Zero || omnibarAnchor == Offset.Zero) return
+        val flyer = Flyer(flyerSeq++, text.trim(), Animatable(0f))
+        flyers.add(flyer)
+        scope.launch {
+            flyer.progress.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+            flyers.remove(flyer)
+            iconPop.snapTo(1f)
+            iconPop.animateTo(1.35f, tween(90))
+            iconPop.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium))
+        }
+    }
 
     // The omnibar's full docked height (shell + its chips + the bottom gap), measured live so the
     // slide distance and the list's bottom inset always match the real thing.
@@ -122,6 +160,7 @@ fun HomeScreen(
     Box(
         Modifier
             .fillMaxSize()
+            .onGloballyPositioned { rootOffset = it.positionInRoot() }
             .background(LocalVoid.current)
             .clipToBounds()
             .nestedScroll(scrollWatcher)
@@ -149,6 +188,12 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(
+                        Modifier
+                            .onGloballyPositioned { queueIconCenter = it.boundsInRoot().center }
+                            .graphicsLayer { scaleX = iconPop.value; scaleY = iconPop.value },
+                    ) { QueueIcon() }
+                    Spacer(Modifier.width(Dimens.Unit * 2))
                     AiStatusIcon()
                     Spacer(Modifier.width(Dimens.Unit * 2))
                     SettingsGear(onClick = onOpenSettings)
@@ -195,16 +240,52 @@ fun HomeScreen(
         // the omnibar, docked over the bottom; slides away on downward scroll, springs back on up.
         Omnibar(
             projects = knownProjects,
-            onCapture = vm::capture,
+            onCapture = { text, dismissed -> vm.capture(text, dismissed); launchFly(text) },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .onGloballyPositioned { omnibarAnchor = it.boundsInRoot().let { r -> Offset(r.center.x, r.top) } }
                 .onSizeChanged { omnibarHeightPx = it.height }
                 .graphicsLayer { translationY = hideOffset }
                 .padding(bottom = Dimens.GroupGap),
         )
+
+        // the flying chips: each animates from the omnibar up into the queue icon
+        flyers.forEach { flyer ->
+            val p = flyer.progress.value
+            val cx = omnibarAnchor.x + (queueIconCenter.x - omnibarAnchor.x) * p
+            val baseY = omnibarAnchor.y + (queueIconCenter.y - omnibarAnchor.y) * p
+            val arcY = baseY - (90.0 * sin(p * PI)).toFloat()
+            val scale = 1f - 0.72f * p
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .graphicsLayer {
+                        translationX = cx - rootOffset.x
+                        translationY = arcY - rootOffset.y
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = 1f - p * p
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+                    .clip(RoundedCornerShape(Dimens.RadiusPill))
+                    .background(Raised)
+                    .padding(horizontal = Dimens.Unit * 3, vertical = Dimens.Unit * 1.5f),
+            ) {
+                Text(
+                    text = flyer.text.take(24),
+                    style = CruxType.Data,
+                    color = InkHi,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
+
+/** One in-flight "skyrocket" chip: its [progress] 0→1 drives the arc from omnibar to queue icon. */
+private class Flyer(val id: Long, val text: String, val progress: Animatable<Float, *>)
 
 /** Per-event scroll delta (px) that counts as a deliberate direction change, filtering micro-jitter. */
 private const val SCROLL_INTENT_PX = 2f

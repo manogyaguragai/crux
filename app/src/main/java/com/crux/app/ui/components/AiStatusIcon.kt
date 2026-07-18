@@ -7,10 +7,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -30,6 +33,9 @@ enum class AiPresence { OFF, IDLE, BUSY }
 /** Provided once at the app shell so every header's [AiStatusIcon] reads the same live state. */
 val LocalAiPresence = compositionLocalOf { AiPresence.OFF }
 
+/** Provided at the app shell: tapping the icon opens settings focused on the ai-assist section. */
+val LocalOpenAiSettings = compositionLocalOf<() -> Unit> { {} }
+
 /**
  * The AI status mark: crux's bloom shrunk to a 24dp header glyph. A filled core inside a thin ring —
  * the same oxblood radiance that sits behind the omnibar, here as a small aura, so it reads as *this*
@@ -41,6 +47,8 @@ val LocalAiPresence = compositionLocalOf { AiPresence.OFF }
 fun AiStatusIcon(modifier: Modifier = Modifier) {
     val presence = LocalAiPresence.current
     val void = LocalVoid.current
+    val openAiSettings = LocalOpenAiSettings.current
+    val interaction = remember { MutableInteractionSource() }
     // Always running, but only READ in the BUSY branch — so idle/off states never redraw per frame.
     val breath by rememberInfiniteTransition(label = "aiBreath").animateFloat(
         initialValue = 0f,
@@ -52,7 +60,11 @@ fun AiStatusIcon(modifier: Modifier = Modifier) {
         label = "breath",
     )
 
-    Canvas(modifier.size(24.dp)) {
+    Canvas(
+        modifier
+            .size(24.dp)
+            .clickable(interactionSource = interaction, indication = null, onClick = openAiSettings),
+    ) {
         val c = center
         val u = size.minDimension / 24f
         val ringR = 7.2f * u
