@@ -5,23 +5,60 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.ProjectRepository
+import com.crux.app.data.TaskRepository
 import com.crux.app.domain.model.Project
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * State for the projects screen: the active projects in rank order, plus create / rename / archive /
  * re-rank. Name clashes never eat input; they surface as a one-shot [errors] signal the screen shows.
  */
-class ProjectsViewModel(private val projects: ProjectRepository) : ViewModel() {
+class ProjectsViewModel(
+    private val projects: ProjectRepository,
+    private val tasks: TaskRepository,
+) : ViewModel() {
 
     val active: StateFlow<List<Project>> =
         projects.observeActive()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Per-project open/due counts, keyed by project id. "due" = an open task filed under the project
+     * whose dueAt falls today-or-earlier (<= end of today, ZoneId.systemDefault()).
+     */
+    val counts: StateFlow<Map<Long, ProjectCounts>> =
+        active.combine(tasks.observeOpen()) { projectList, open ->
+            val ids = projectList.mapTo(HashSet()) { it.id }
+            val endOfToday = LocalDate.now(ZoneId.systemDefault())
+                .plusDays(1)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+            open.asSequence()
+                .filter { it.projectId != null && it.projectId in ids }
+                .groupBy { it.projectId!! }
+                .mapValues { (_, list) ->
+                    ProjectCounts(
+                        open = list.size,
+                        due = list.count { it.dueAt != null && it.dueAt <= endOfToday },
+                    )
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Total open task count across all projects (the header subline's hot portion). */
+    val totalOpen: StateFlow<Int> =
+        tasks.observeOpen()
+            .map { it.size }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private val errorChannel = Channel<ProjectError>(Channel.CONFLATED)
     val errors = errorChannel.receiveAsFlow()
@@ -62,11 +99,14 @@ class ProjectsViewModel(private val projects: ProjectRepository) : ViewModel() {
     }
 
     companion object {
-        fun factory(projects: ProjectRepository) = viewModelFactory {
-            initializer { ProjectsViewModel(projects) }
+        fun factory(projects: ProjectRepository, tasks: TaskRepository) = viewModelFactory {
+            initializer { ProjectsViewModel(projects, tasks) }
         }
     }
 }
+
+/** Per-project counts for a project row's trailing meta: open tasks and how many are due. */
+data class ProjectCounts(val open: Int, val due: Int)
 
 /** The only failure the projects screen shows for now: a name already in use. */
 enum class ProjectError { DUPLICATE_NAME }

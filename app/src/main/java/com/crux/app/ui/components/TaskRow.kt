@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,8 +36,10 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.ParsedBy
+import com.crux.app.domain.model.RecurrenceType
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
+import com.crux.app.ui.Copy
 import com.crux.app.ui.theme.Blush
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
@@ -46,9 +50,11 @@ import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Motion
 import com.crux.app.ui.theme.Overdue
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 /**
@@ -91,6 +97,8 @@ fun TaskRow(
 
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val bodyInteraction = remember { MutableInteractionSource() }
+    // a synced calendar event (mockup 03): not a tickable stone, it wears the gold glyph instead.
+    val isEvent = task.calendarEventId != null
 
     Row(
         modifier = modifier
@@ -98,7 +106,16 @@ fun TaskRow(
             .heightIn(min = Dimens.RowMinHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        HoldCheckbox(checked = struck, onToggle = onToggle)
+        if (isEvent) {
+            Icon(
+                imageVector = CruxIcons.Calendar,
+                contentDescription = null,
+                tint = Gold,
+                modifier = Modifier.size(20.dp),
+            )
+        } else {
+            HoldCheckbox(checked = struck, onToggle = onToggle)
+        }
         Spacer(Modifier.width(Dimens.Unit * 2))
         Box(
             modifier = Modifier
@@ -147,7 +164,7 @@ fun TaskRow(
                         }
                     },
                 )
-                TaskMeta(task = task, faded = struck)
+                TaskMeta(task = task, faded = struck, event = isEvent)
             }
         }
     }
@@ -160,12 +177,28 @@ fun TaskRow(
  * task carries none of these, keeping bare rows clean. Fades with the title when completing/done.
  */
 @Composable
-private fun TaskMeta(task: Task, faded: Boolean) {
+private fun TaskMeta(task: Task, faded: Boolean, event: Boolean = false) {
+    // a synced event reads differently (mockup 03): gold clock time + "event", then the gcal tag.
+    if (event) {
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            task.dueAt?.let { due ->
+                val zdt = Instant.ofEpochMilli(due).atZone(ZoneId.systemDefault())
+                val time = zdt.format(MetaTimeFmt).lowercase(Locale.ENGLISH)
+                Text(text = "$time · event", style = CruxType.Data, color = Gold)
+                Spacer(Modifier.width(Dimens.Unit * 2))
+            }
+            Text(text = Copy.WEEK_SYNCED, style = CruxType.Data, color = InkLow)
+        }
+        return
+    }
+
     val priorityLabel = when (task.priority) {
         1 -> "p1"; 2 -> "p2"; 4 -> "p4"; else -> null
     }
     val showAi = task.parsedBy == ParsedBy.AI
-    if (priorityLabel == null && task.dueAt == null && !showAi) return
+    val recurrence = recurrenceLabel(task)
+    if (priorityLabel == null && task.dueAt == null && !showAi && recurrence == null) return
 
     Spacer(Modifier.height(2.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -200,11 +233,29 @@ private fun TaskMeta(task: Task, faded: Boolean) {
             }
             Text(text = label, style = CruxType.Data, color = color)
         }
-        if (showAi) {
+        // the recurring task wears its ↻ quietly (mockup 02): "every mon ↻", "daily ↻".
+        if (recurrence != null) {
             if (priorityLabel != null || task.dueAt != null) Spacer(Modifier.width(Dimens.Unit * 2))
+            Text(text = recurrence, style = CruxType.Data, color = if (faded) InkLow else InkMid)
+        }
+        if (showAi) {
+            if (priorityLabel != null || task.dueAt != null || recurrence != null) {
+                Spacer(Modifier.width(Dimens.Unit * 2))
+            }
             AiTag(faded = faded)
         }
     }
+}
+
+/** The quiet recurrence line (mockup .tmeta ↻): "daily ↻", "weekdays ↻", "every mon ↻", "monthly ↻". */
+private fun recurrenceLabel(task: Task): String? = when (task.recurrenceType) {
+    null -> null
+    RecurrenceType.DAILY -> "daily ↻"
+    RecurrenceType.WEEKDAYS -> "weekdays ↻"
+    RecurrenceType.WEEKLY -> task.recurrenceWeekday?.let { wd ->
+        "every ${DayOfWeek.of(wd).getDisplayName(TextStyle.SHORT, Locale.ENGLISH).lowercase(Locale.ENGLISH)} ↻"
+    } ?: "weekly ↻"
+    RecurrenceType.MONTHLY -> "monthly ↻"
 }
 
 /** The blush `ai` tag: a small pill marking a task the model touched. Fades with the row. */

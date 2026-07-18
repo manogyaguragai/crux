@@ -122,6 +122,13 @@ object CruxIcons {
         }.build()
     }
 
+    /** calendar: the gold event glyph on timed week rows (mockup .evglyph). viewBox 24. */
+    val Calendar: ImageVector by lazy {
+        ImageVector.Builder("calendar", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M4 5h16v15H4z M8 3v4M16 3v4M4 10h16", join = StrokeJoin.Round)
+        }.build()
+    }
+
     /** archive (soft delete): a box with a down arrow filing into it. viewBox 24. */
     val Archive: ImageVector by lazy {
         ImageVector.Builder("archive", 24.dp, 24.dp, 24f, 24f).apply {

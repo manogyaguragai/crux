@@ -28,6 +28,25 @@ class MigrationTest {
         helper.createDatabase(TEST_DB, 1).close()
     }
 
+    @Test
+    fun migrate1To2_addsRemindOffsetColumn() {
+        // seed a v1 task, then run the migration and confirm the row survives with the new null column.
+        helper.createDatabase(TEST_DB, 1).apply {
+            execSQL(
+                "INSERT INTO tasks (id, title, priority, hasTime, status, createdAt, source, parsedBy) " +
+                    "VALUES (1, 'keep me', 3, 0, 'OPEN', 0, 'TYPED', 'MANUAL')",
+            )
+            close()
+        }
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, CruxDatabase.MIGRATION_1_2).apply {
+            query("SELECT remindOffsetMinutes FROM tasks WHERE id = 1").use { c ->
+                assert(c.moveToFirst())
+                assert(c.isNull(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "crux-migration-test"
     }

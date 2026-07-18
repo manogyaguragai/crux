@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.domain.model.Project
 import com.crux.app.ui.Copy
+import com.crux.app.ui.ProjectCounts
 import com.crux.app.ui.ProjectsViewModel
 import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.components.TabHeader
@@ -76,6 +77,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
     val projects by vm.active.collectAsStateWithLifecycle()
+    val counts by vm.counts.collectAsStateWithLifecycle()
+    val totalOpen by vm.totalOpen.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     var showDuplicate by remember { mutableStateOf(false) }
 
@@ -99,7 +102,12 @@ fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
             onOpenSettings = onOpenSettings,
             eyebrow = Copy.PROJECTS_EYEBROW,
             subline = if (projects.isEmpty()) null else {
-                { Text("${projects.size} stones", style = CruxType.Data, color = InkLow) }
+                {
+                    Row {
+                        Text("${projects.size} stones · ", style = CruxType.Data, color = InkLow)
+                        Text("$totalOpen open", style = CruxType.Data, color = Ember)
+                    }
+                }
             },
             trailing = {
                 if (projects.isNotEmpty()) {
@@ -136,6 +144,7 @@ fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
                     ProjectRow(
                         project = project,
                         position = index + 1,
+                        counts = counts[project.id],
                         editing = editing,
                         isFirst = index == 0,
                         isLast = index == projects.lastIndex,
@@ -224,6 +233,7 @@ private fun CreateField(onCreate: (String) -> Unit) {
 private fun ProjectRow(
     project: Project,
     position: Int,
+    counts: ProjectCounts?,
     editing: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
@@ -272,6 +282,15 @@ private fun ProjectRow(
                 style = CruxType.Body,
                 color = InkHi,
                 modifier = Modifier.weight(1f),
+            )
+            // the row's trailing meta (mockup .pcount): "N open" plus " · N due" when anything is due.
+            val open = counts?.open ?: 0
+            val due = counts?.due ?: 0
+            Spacer(Modifier.width(Dimens.Unit * 2))
+            Text(
+                text = if (due > 0) "$open open · $due due" else "$open open",
+                style = CruxType.Data,
+                color = InkLow,
             )
         }
     }

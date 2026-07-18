@@ -31,4 +31,5 @@ data class Task(
     val source: Source = Source.TYPED,
     val parsedBy: ParsedBy = ParsedBy.MANUAL,
     val calendarEventId: Long? = null,
+    val remindOffsetMinutes: Int? = null, // minutes before a timed task's dueAt to remind; null = none
 )

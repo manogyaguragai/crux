@@ -22,6 +22,7 @@ import com.crux.app.intelligence.KnownProject
 import com.crux.app.intelligence.ParseField
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import com.crux.app.ui.theme.Motion
 import kotlinx.coroutines.channels.Channel
@@ -140,6 +141,36 @@ class TasksViewModel(
             val result = tasks.complete(task, System.currentTimeMillis(), ZoneId.systemDefault())
             lastCompletion = task to result
             undoChannel.send(Unit)
+        }
+    }
+
+    /**
+     * Carry every task in the overdue pile forward to today, keeping each task's time-of-day when it
+     * has one (else midnight). One shot from the pile's "carry all" button; each write drops the task
+     * out of overdueTasks as its dueAt lands on today.
+     */
+    fun carryAllToToday() {
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        viewModelScope.launch {
+            overdueTasks.value.forEach { task ->
+                val existingTime = task.dueAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
+                val local = today.atTime(if (task.hasTime) existingTime ?: LocalTime.MIDNIGHT else LocalTime.MIDNIGHT)
+                tasks.updateTask(task.copy(dueAt = local.atZone(zone).toInstant().toEpochMilli()))
+            }
+        }
+    }
+
+    /**
+     * Reschedule a single overdue task to the picked date, preserving its time-of-day when it has one
+     * (else midnight). Backs both the row's swipe-right (carry to today) and its hold-to-reschedule.
+     */
+    fun reschedule(task: Task, date: LocalDate) {
+        val zone = ZoneId.systemDefault()
+        viewModelScope.launch {
+            val existingTime = task.dueAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
+            val local = date.atTime(if (task.hasTime) existingTime ?: LocalTime.MIDNIGHT else LocalTime.MIDNIGHT)
+            tasks.updateTask(task.copy(dueAt = local.atZone(zone).toInstant().toEpochMilli()))
         }
     }
 

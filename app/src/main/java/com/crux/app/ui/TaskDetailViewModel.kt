@@ -65,6 +65,9 @@ class TaskDetailViewModel(
 
     fun setTime(dueAt: Long, hasTime: Boolean) = mutate { it.copy(dueAt = dueAt, hasTime = hasTime) }
 
+    /** Set or clear the per-task reminder offset (minutes before a timed due). null = no reminder. */
+    fun setRemindOffset(minutes: Int?) = mutate { it.copy(remindOffsetMinutes = minutes) }
+
     /**
      * Set or clear recurrence. WEEKLY carries the weekday, MONTHLY the day-of-month; the screen
      * derives those from the due date (or today) so there is no separate sub-picker in phase 1.

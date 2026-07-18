@@ -39,9 +39,12 @@ fun groupWeek(tasks: List<Task>, today: LocalDate, zone: ZoneId): List<WeekDay> 
         }
 }
 
-/** today -> "today", tomorrow -> "tomorrow", otherwise the weekday name (within a 7-day window). */
-fun weekLabel(date: LocalDate, today: LocalDate): String = when (date) {
-    today -> "today"
-    today.plusDays(1) -> "tomorrow"
-    else -> date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH).lowercase(Locale.ENGLISH)
+/**
+ * The day-group header (mockup 03 .ghead): the short weekday and day-of-month, e.g. "mon 14", with
+ * a "· today" tail on the current day. Unambiguous because the window never spans more than 7 days.
+ */
+fun weekLabel(date: LocalDate, today: LocalDate): String {
+    val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).lowercase(Locale.ENGLISH)
+    val base = "$weekday ${date.dayOfMonth}"
+    return if (date == today) "$base · today" else base
 }

@@ -64,12 +64,20 @@ object Copy {
     // overdue pile (pushed screen behind the home nudge). proposed, pending owner approval.
     const val OVERDUE_TITLE = "overdue"
     const val OVERDUE_EMPTY = "nothing overdue. clear trail."
+    // overdue actions (mockup 04): the gesture hint, the bulk-carry button, and the reset footer.
+    const val OVERDUE_HINT = "swipe right → today · hold → reschedule · tick → done anyway"
+    const val OVERDUE_CARRY_ALL = "carry all to today"
+    const val OVERDUE_FOOTER = "the nudge resets each morning · nothing here badges the icon"
     const val EMPTY_STACK = "nothing here yet. the omnibar is on home."
     // stack view toggle + week view (phase 2). proposed, pending owner approval.
     const val STACK_VIEW_STACK = "stack"
     const val STACK_VIEW_WEEK = "week"
     const val EMPTY_WEEK = "nothing due this week."
     const val STACK_INBOX = "inbox" // the catch-all group header, always last (data-model.md)
+    // week view (mockup 03): the gcal sync tag on synced events, and the month handoff line at the
+    // bottom — anything past the 7-day ceiling is google calendar's job (chisel voice, arrows per mockup).
+    const val WEEK_SYNCED = "synced ↗ gcal"
+    const val WEEK_HANDOFF = "full month → google calendar ↗"
     const val EMPTY_REVIEW = "no questions today."
     // projects strings: proposed in phase 1 (the copy bank had no projects entries).
     // Logged in DECISIONS.log, pending owner approval. Chisel voice: lowercase, calm, no exclaims.
@@ -106,6 +114,10 @@ object Copy {
     const val HISTORY_EMPTY = "nothing finished yet. tick something off."
     const val HISTORY_TODAY = "today"
     const val HISTORY_YESTERDAY = "yesterday"
+    // about section (mockup 06): the quietest group — name + version, one line.
+    const val SETTINGS_ABOUT = "about"
+    const val SETTINGS_ABOUT_NAME = "crux"
+    const val SETTINGS_ABOUT_VERSION = "0.1 · kathmandu"
     const val SETTINGS_NOTIFICATIONS = "notifications"
     const val NOTIF_MORNING = "morning"
     const val NOTIF_MORNING_SUB = "the day's climb"
@@ -164,6 +176,11 @@ object Copy {
     const val REVIEW_DISMISS = "not now"
     const val REVIEW_EMPTY_INBOX = "inbox is clear. nothing to sort."
     const val REVIEW_SECTION_PRIORITY = "reprioritize"
+    // review batch actions (mockup 08): the approve-all pill, and the reorder card's keep/move pair.
+    const val REVIEW_APPROVE_ALL = "approve all"
+    const val REVIEW_REORDER = "reorder"
+    const val REVIEW_KEEP_ORDER = "keep order"
+    const val REVIEW_MOVE_UP = "move up"
 
     // capture queue (phase 3, owner request). proposed, pending owner approval.
     const val QUEUE_TITLE = "queue"
@@ -176,6 +193,14 @@ object Copy {
     // task detail (pushed screen). Field labels are lowercase eyebrows; proposed in phase 1
     // (logged in DECISIONS.log), pending owner approval.
     const val DETAIL_TITLE_PLACEHOLDER = "untitled"
+    // detail chrome (mockup 05): the back breadcrumb, the ai-provenance chip top-right, and the
+    // per-task reminder chip on the due row (offset before a timed task, "remind 3:30" style).
+    const val DETAIL_BACK = "back"
+    const val DETAIL_EDITED_BY_AI = "edited by ai"
+    const val DETAIL_REMIND = "remind"
+    // reminder offsets before a timed due (minutes). the chip cycles off → 10 → 30 → 60 → off and
+    // shows the resulting clock time, e.g. a 4pm task at offset 30 reads "remind 3:30".
+    val REMIND_OFFSETS = listOf(10, 30, 60)
     const val DETAIL_PROJECT = "project"
     const val DETAIL_PRIORITY = "priority"
     const val DETAIL_DUE = "due"

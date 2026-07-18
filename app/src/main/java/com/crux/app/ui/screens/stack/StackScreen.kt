@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
@@ -39,10 +40,12 @@ import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.domain.model.TaskStatus
 import com.crux.app.ui.theme.Blush
+import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Garnet
+import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.HairlineStrong
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
@@ -113,8 +116,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.StackList(
             groups.forEachIndexed { groupIndex, group ->
                 item(key = "header-${group.projectId}") {
                     GroupHeader(
-                        title = group.title,
+                        title = if (group.projectId != null) "# ${group.title}" else group.title,
                         first = groupIndex == 0,
+                        trailing = group.rank?.let { "R$it" },
                         modifier = Modifier.animateItem(
                             placementSpec = spring(
                                 dampingRatio = Motion.ReorderDamping,
@@ -160,6 +164,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
         EmptyBody(Copy.EMPTY_WEEK)
     } else {
         val cascade = remember { SessionMotion.claim("stack-week") }
+        // the 7-cell day-strip always shows the coming week, whether or not those days hold tasks.
+        DayStrip(loaded = week.map { it.date }.toSet())
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             var flat = 0
             week.forEachIndexed { dayIndex, day ->
@@ -167,6 +173,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
                     GroupHeader(
                         title = day.label,
                         first = dayIndex == 0,
+                        trailing = "${day.tasks.size}",
                         modifier = Modifier.animateItem(
                             placementSpec = spring(
                                 dampingRatio = Motion.ReorderDamping,
@@ -196,8 +203,86 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
                 flat += day.tasks.size
             }
         }
+        // gcal handoff (mockup .gcal): a quiet, static invitation to the full month in google calendar.
+        Text(
+            text = Copy.WEEK_HANDOFF,
+            style = CruxType.Data,
+            color = InkMid,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Dimens.Unit * 3),
+        )
     }
 }
+
+/**
+ * The week day-strip (mockup .daystrip): seven equal cells for [today .. today+6]. Each shows the
+ * weekday short lowercase over its day number, with a dot below when that date carries tasks. Today
+ * is a solid garnet chip in cream; the rest are hairline-bordered ink-low.
+ */
+@Composable
+private fun DayStrip(loaded: Set<LocalDate>) {
+    val today = LocalDate.now(ZoneId.systemDefault())
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = Dimens.Unit * 2),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Dimens.Unit * 1.5f),
+    ) {
+        for (offset in 0..6) {
+            val date = today.plusDays(offset.toLong())
+            val isToday = offset == 0
+            val hasTasks = date in loaded
+            val weekday = date.format(DayStripFmt).lowercase(Locale.ENGLISH)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(Dimens.Unit * 3.25f))
+                    .then(
+                        if (isToday) {
+                            Modifier.background(Garnet)
+                        } else {
+                            Modifier.border(
+                                Dimens.HairlineWidth,
+                                Hairline,
+                                RoundedCornerShape(Dimens.Unit * 3.25f),
+                            )
+                        },
+                    )
+                    .padding(vertical = Dimens.Unit * 1.5f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = weekday,
+                    style = CruxType.Data,
+                    color = if (isToday) Cream else InkLow,
+                )
+                Text(
+                    text = "${date.dayOfMonth}",
+                    style = CruxType.Subhead,
+                    color = if (isToday) Cream else InkLow,
+                )
+                Spacer(Modifier.height(Dimens.Unit * 0.5f))
+                Box(
+                    Modifier
+                        .height(4.dp)
+                        .width(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            if (hasTasks) {
+                                if (isToday) Cream else InkLow
+                            } else {
+                                Color.Transparent
+                            },
+                        ),
+                )
+            }
+        }
+    }
+}
+
+private val DayStripFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
 
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.EmptyBody(text: String) {
@@ -247,10 +332,24 @@ private fun SegPill(label: String, selected: Boolean, onClick: () -> Unit) {
  * garnet-to-transparent downhill rule.
  */
 @Composable
-private fun GroupHeader(title: String, first: Boolean, modifier: Modifier = Modifier) {
+private fun GroupHeader(
+    title: String,
+    first: Boolean,
+    modifier: Modifier = Modifier,
+    trailing: String? = null,
+) {
     Column(modifier.fillMaxWidth()) {
         Spacer(Modifier.height(if (first) Dimens.Unit * 2 else Dimens.GroupGap))
-        Text(text = title.uppercase(), style = CruxType.Eyebrow, color = InkMid)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = title.uppercase(), style = CruxType.Eyebrow, color = InkMid)
+            if (trailing != null) {
+                Text(text = trailing, style = CruxType.Data, color = InkLow)
+            }
+        }
         Spacer(Modifier.height(Dimens.Unit * 2))
         Box(
             Modifier

@@ -81,6 +81,7 @@ private fun Task.toJson() = JSONObject().apply {
     put("source", source.name)
     put("parsedBy", parsedBy.name)
     putOrNull("calendarEventId", calendarEventId)
+    putOrNull("remindOffsetMinutes", remindOffsetMinutes)
 }
 
 private fun JSONObject.toTask() = Task(
@@ -100,6 +101,7 @@ private fun JSONObject.toTask() = Task(
     source = Source.valueOf(getString("source")),
     parsedBy = ParsedBy.valueOf(getString("parsedBy")),
     calendarEventId = longOrNull("calendarEventId"),
+    remindOffsetMinutes = intOrNull("remindOffsetMinutes"),
 )
 
 private fun CompletionLog.toJson() = JSONObject().apply {

@@ -119,7 +119,7 @@ fun CruxApp() {
             ),
         )
     val projectsVm: ProjectsViewModel =
-        viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
+        viewModel(factory = ProjectsViewModel.factory(container.projectRepository, container.taskRepository))
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val reviewVm: ReviewViewModel = viewModel(factory = ReviewViewModel.factory(container))
     // what is waiting in review, for the tab badge (mockup .tbadge): the live priority nudges plus any

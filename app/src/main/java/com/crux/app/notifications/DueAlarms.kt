@@ -19,45 +19,81 @@ import com.crux.app.domain.model.Task
 object DueAlarms {
     const val EXTRA_TASK_ID = "task_id"
     const val EXTRA_TITLE = "title"
+    const val EXTRA_OFFSET = "offset"
+    // the reminder alarm carries its own action so its PendingIntent never collides with the due one
+    // (PendingIntent equality ignores extras but honours the action), even at the same request code.
+    const val ACTION_REMIND = "com.crux.app.REMIND"
 
-    private val armed = mutableSetOf<Long>()
+    private val armedDue = mutableSetOf<Long>()
+    private val armedRemind = mutableSetOf<Long>()
 
     @Synchronized
     fun rescheduleAll(context: Context, openTasks: List<Task>, dueEnabled: Boolean, now: Long) {
-        val wanted = if (!dueEnabled) emptyList() else openTasks.filter {
+        val manager = context.getSystemService(AlarmManager::class.java) ?: return
+
+        // due alarms: the task's own time.
+        val wantedDue = if (!dueEnabled) emptyList() else openTasks.filter {
             it.hasTime && it.dueAt != null && it.dueAt > now
         }
-        val wantedIds = wanted.map { it.id }.toSet()
-
-        // cancel alarms we no longer want (completed, un-timed, slipped past, or toggle off)
-        (armed - wantedIds).forEach { cancel(context, it) }
-        armed.clear()
-
-        val manager = context.getSystemService(AlarmManager::class.java) ?: return
-        wanted.forEach { task ->
+        val wantedDueIds = wantedDue.map { it.id }.toSet()
+        (armedDue - wantedDueIds).forEach { cancel(context, duePendingIntent(context, it, "")) }
+        armedDue.clear()
+        wantedDue.forEach { task ->
             val at = task.dueAt ?: return@forEach
-            val pending = pendingIntent(context, task.id, task.title)
-            if (canScheduleExact(manager)) {
-                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-            } else {
-                manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-            }
-            armed += task.id
+            arm(manager, at, duePendingIntent(context, task.id, task.title))
+            armedDue += task.id
+        }
+
+        // reminder alarms: an offset before a timed due (shares the due toggle).
+        val wantedRemind = if (!dueEnabled) emptyList() else openTasks.filter {
+            it.hasTime && it.dueAt != null && it.remindOffsetMinutes != null &&
+                it.dueAt - it.remindOffsetMinutes * 60_000L > now
+        }
+        val wantedRemindIds = wantedRemind.map { it.id }.toSet()
+        (armedRemind - wantedRemindIds).forEach { cancel(context, remindPendingIntent(context, it, "", 0)) }
+        armedRemind.clear()
+        wantedRemind.forEach { task ->
+            val offset = task.remindOffsetMinutes ?: return@forEach
+            val at = (task.dueAt ?: return@forEach) - offset * 60_000L
+            arm(manager, at, remindPendingIntent(context, task.id, task.title, offset))
+            armedRemind += task.id
         }
     }
 
-    private fun cancel(context: Context, taskId: Long) {
-        val manager = context.getSystemService(AlarmManager::class.java) ?: return
-        manager.cancel(pendingIntent(context, taskId, title = ""))
+    private fun arm(manager: AlarmManager, at: Long, pending: PendingIntent) {
+        if (canScheduleExact(manager)) {
+            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        } else {
+            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        }
+    }
+
+    private fun cancel(context: Context, pending: PendingIntent) {
+        context.getSystemService(AlarmManager::class.java)?.cancel(pending)
     }
 
     private fun canScheduleExact(manager: AlarmManager): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
 
-    private fun pendingIntent(context: Context, taskId: Long, title: String): PendingIntent {
+    private fun duePendingIntent(context: Context, taskId: Long, title: String): PendingIntent {
         val intent = Intent(context, DueAlarmReceiver::class.java).apply {
             putExtra(EXTRA_TASK_ID, taskId)
             putExtra(EXTRA_TITLE, title)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            taskId.toInt(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    private fun remindPendingIntent(context: Context, taskId: Long, title: String, offset: Int): PendingIntent {
+        val intent = Intent(context, DueAlarmReceiver::class.java).apply {
+            action = ACTION_REMIND
+            putExtra(EXTRA_TASK_ID, taskId)
+            putExtra(EXTRA_TITLE, title)
+            putExtra(EXTRA_OFFSET, offset)
         }
         return PendingIntent.getBroadcast(
             context,

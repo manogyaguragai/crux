@@ -112,16 +112,35 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.Unit * 2))
-        // back affordance (pushed screen)
+        // back affordance (mockup .backrow): chevron + breadcrumb on the left; on the right, the
+        // ai-provenance chip when the model touched this task (blush + ember, no silent AI).
         val backInteraction = remember { MutableInteractionSource() }
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(Dimens.RadiusPill))
-                .clickable(interactionSource = backInteraction, indication = null) { leave() },
-            contentAlignment = Alignment.CenterStart,
+        Row(
+            Modifier.fillMaxWidth().height(44.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(CruxIcons.Back, contentDescription = "back", tint = InkMid, modifier = Modifier.size(24.dp))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(Dimens.RadiusPill))
+                    .clickable(interactionSource = backInteraction, indication = null) { leave() }
+                    .padding(vertical = Dimens.Unit * 2, horizontal = Dimens.Unit),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(CruxIcons.Back, contentDescription = "back", tint = InkMid, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(Dimens.Unit * 2))
+                Text(Copy.DETAIL_BACK.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+            }
+            Spacer(Modifier.weight(1f))
+            if (current?.parsedBy == ParsedBy.AI) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(Dimens.RadiusPill))
+                        .background(Blush)
+                        .padding(horizontal = Dimens.Unit * 3, vertical = Dimens.Unit * 1.5f),
+                ) {
+                    Text(Copy.DETAIL_EDITED_BY_AI, style = CruxType.Data, color = Ember)
+                }
+            }
         }
         Spacer(Modifier.height(Dimens.Unit * 2))
 
@@ -192,7 +211,8 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
             }
         }
 
-        // time (only meaningful once there is a date)
+        // time (only meaningful once there is a date); a timed task can also carry a reminder offset,
+        // whose chip cycles off → 10 → 30 → 60 and reads the resulting clock time ("remind 3:30").
         if (current.dueAt != null) {
             Frow(Copy.DETAIL_TIME) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
@@ -203,6 +223,14 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
                         label = if (current.hasTime) formatTime(current.dueAt, zone) else Copy.DETAIL_TIME,
                         selected = current.hasTime,
                     ) { showTimePicker = true }
+                    if (current.hasTime) {
+                        Chip(
+                            label = current.remindOffsetMinutes?.let { off ->
+                                "${Copy.DETAIL_REMIND} ${formatTime(current.dueAt - off * 60_000L, zone)}"
+                            } ?: Copy.DETAIL_REMIND,
+                            selected = current.remindOffsetMinutes != null,
+                        ) { vm.setRemindOffset(nextRemindOffset(current.remindOffsetMinutes)) }
+                    }
                 }
             }
         }
@@ -427,6 +455,16 @@ private fun recurrenceHint(task: Task): String? = when (task.recurrenceType) {
     }
     RecurrenceType.MONTHLY -> task.recurrenceDay?.let { "on the ${ordinal(it)}" }
     else -> null
+}
+
+/** Cycle the reminder chip: off → each offset in turn → off. */
+private fun nextRemindOffset(current: Int?): Int? {
+    val opts = Copy.REMIND_OFFSETS
+    return when (val i = opts.indexOf(current)) {
+        -1 -> opts.first()
+        opts.lastIndex -> null
+        else -> opts[i + 1]
+    }
 }
 
 private fun ordinal(n: Int): String {

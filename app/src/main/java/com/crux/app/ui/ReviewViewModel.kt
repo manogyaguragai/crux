@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.AppContainer
 import com.crux.app.domain.NudgeUrgency
 import com.crux.app.domain.priorityNudges
+import com.crux.app.domain.withinGroupComparator
 import com.crux.app.domain.model.ParsedBy
 import com.crux.app.domain.model.Task
 import com.crux.app.intelligence.KnownProject
@@ -42,6 +43,17 @@ data class PriorityNudge(
     val task: Task,
     val targetPriority: Int,
     val reason: String,
+)
+
+/**
+ * A nudge plus the neighbor it would leapfrog: [above] is the open task currently sitting immediately
+ * ABOVE [nudge]'s task in the app's sort — the one the task would move past once its priority rises.
+ * Null when the task is already at the top or the neighbor cannot be resolved (degrade gracefully).
+ * Lets the review card render a before/after "reorder" comparison of the two rows.
+ */
+data class NudgeContext(
+    val nudge: PriorityNudge,
+    val above: Task?,
 )
 
 /**
@@ -110,6 +122,22 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Each nudge paired with the open task it sits directly below in the app's sort — the neighbor it
+     * would leapfrog once bumped. We re-sort the open pile by [withinGroupComparator], find the nudge's
+     * task, and take the task immediately above it (null at the top / if unresolved). The review card
+     * renders both rows as a before/after "reorder" comparison.
+     */
+    val nudgeContexts: StateFlow<List<NudgeContext>> =
+        combine(nudges, tasks.observeOpen()) { list, open ->
+            val sorted = open.sortedWith(withinGroupComparator)
+            list.map { n ->
+                val idx = sorted.indexOfFirst { it.id == n.task.id }
+                val above = if (idx > 0) sorted[idx - 1] else null
+                NudgeContext(n, above)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Apply the nudge: raise the task's priority. A manual/rules act, so provenance is left untouched. */
     fun acceptNudge(nudge: PriorityNudge) {
         viewModelScope.launch { tasks.updateTask(nudge.task.copy(priority = nudge.targetPriority)) }
@@ -161,6 +189,16 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
     fun dismiss(proposal: ReviewProposal) {
         dismissed += proposal.task.id
         _proposals.update { list -> list.filterNot { it.task.id == proposal.task.id } }
+    }
+
+    /**
+     * Clear the whole queue in one tap: apply every pending nudge (raise each task) and file every
+     * pending proposal, reusing the same per-item logic as [acceptNudge] and [accept] so provenance
+     * and flow updates stay identical. Snapshots the current lists first, since each accept mutates them.
+     */
+    fun acceptAll() {
+        nudges.value.forEach { acceptNudge(it) }
+        proposals.value.forEach { accept(it) }
     }
 
     companion object {

@@ -3,8 +3,12 @@ package com.crux.app.domain
 import com.crux.app.domain.model.Project
 import com.crux.app.domain.model.Task
 
-/** One stack group: a project's tasks (or the inbox), already in within-group order. */
-data class StackGroup(val projectId: Long?, val title: String, val tasks: List<Task>)
+/**
+ * One stack group: a project's tasks (or the inbox), already in within-group order. [rank] is the
+ * project's stored rank (R1, R2…) for the group header badge (mockup .ghead); null for the inbox,
+ * which sits outside the ranking.
+ */
+data class StackGroup(val projectId: Long?, val title: String, val tasks: List<Task>, val rank: Int? = null)
 
 /**
  * Group the stack by project rank, inbox last (data-model.md). Active projects come first in rank
@@ -18,7 +22,7 @@ fun groupStack(tasks: List<Task>, projects: List<Project>, inboxTitle: String): 
     val groups = ArrayList<StackGroup>(active.size + 1)
     for (p in active) {
         val ts = tasks.filter { it.projectId == p.id }.sortedWith(withinGroupComparator)
-        if (ts.isNotEmpty()) groups += StackGroup(p.id, p.name, ts)
+        if (ts.isNotEmpty()) groups += StackGroup(p.id, p.name, ts, rank = p.rank)
     }
     val inbox = tasks
         .filter { it.projectId == null || it.projectId !in activeIds }

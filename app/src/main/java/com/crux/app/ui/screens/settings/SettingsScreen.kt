@@ -339,6 +339,12 @@ fun SettingsScreen(
             }
         }
         Spacer(Modifier.height(Dimens.GroupGap))
+
+        // about (mockup screen 06): the closing section — app name on the left, version as a mono value
+        // on the right, under the same eyebrow + downhill rule every other section carries.
+        SectionLabel(Copy.SETTINGS_ABOUT)
+        ValueRow(label = Copy.SETTINGS_ABOUT_NAME, value = Copy.SETTINGS_ABOUT_VERSION)
+        Spacer(Modifier.height(Dimens.GroupGap))
     }
 
     if (showMorningPicker) {
@@ -661,6 +667,21 @@ private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
             Text(title, style = CruxType.Body, color = InkHi)
             Text(subtitle, style = CruxType.Secondary, color = InkMid)
         }
+    }
+}
+
+/**
+ * A read-only value row: a plain label on the left, a right-aligned mono value (CruxType.Data) on the
+ * right. Used by the about section for the app name + version, matching the mockup's label/value pair.
+ */
+@Composable
+private fun ValueRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = CruxType.Body, color = InkHi, modifier = Modifier.weight(1f))
+        Text(value, style = CruxType.Data, color = InkMid)
     }
 }
 
