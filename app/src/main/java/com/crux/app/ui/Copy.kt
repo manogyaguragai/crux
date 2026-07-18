@@ -95,6 +95,9 @@ object Copy {
     const val AI_KEY_REMOVE = "remove key"
     const val AI_KEY_SET = "key set"
     const val AI_KEY_NEEDED = "add a key to turn this on"
+    const val AI_KEY_SAVED_LABEL = "saved key"
+    const val AI_KEY_USE = "use this key"
+    const val AI_KEY_REPLACE = "paste a new key below to replace it"
 
     // command mode + review outcomes (phase 3). proposed, pending owner approval.
     const val AI_NOT_FOUND = "couldn't find that task"

@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -90,6 +92,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
     val aiEnabled by vm.aiEnabled.collectAsStateWithLifecycle()
     val aiProvider by vm.aiProvider.collectAsStateWithLifecycle()
     val aiHasKey by vm.hasKey.collectAsStateWithLifecycle()
+    val savedKeys by vm.savedKeys.collectAsStateWithLifecycle()
     var showKeySheet by remember { mutableStateOf(false) }
     var confirmingReset by remember { mutableStateOf(false) }
     var purgeArmed by remember { mutableStateOf(false) }
@@ -314,33 +317,37 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
     if (showKeySheet) {
         ApiKeySheet(
             current = aiProvider,
-            hasKey = aiHasKey,
+            savedKeys = savedKeys,
             onSave = { provider, key -> vm.saveKey(provider, key); showKeySheet = false },
-            onRemove = { vm.removeKey(); showKeySheet = false },
+            onUse = { provider -> vm.useProvider(provider); showKeySheet = false },
+            onRemove = { provider -> vm.removeKey(provider) }, // stay open so the sheet reflects the removal
             onDismiss = { showKeySheet = false },
         )
     }
 }
 
 /**
- * The bring-your-own-key sheet (phase 3). Rides at the bottom for thumb reach: pick a provider, paste
- * the key, save. The key is never shown back once stored — the settings row just reads "key set". The
- * paste field is masked by nothing on entry (the owner wants to confirm what they pasted), but it is
- * write-only afterward: we never read it out of the encrypted store.
+ * The bring-your-own-key sheet (phase 3). Rides at the bottom for thumb reach. Pick a provider; keys
+ * are kept per provider, so several can be saved at once and the owner switches which one parses. A
+ * provider that already has a key shows a masked preview (head + last 4, never the raw secret) with a
+ * minus to remove just that key, and a "use this key" action when it is not the active one. Pasting a
+ * new key saves it and makes that provider active.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ApiKeySheet(
     current: LlmProvider?,
-    hasKey: Boolean,
+    savedKeys: Map<String, String>,
     onSave: (LlmProvider, String) -> Unit,
-    onRemove: () -> Unit,
+    onUse: (LlmProvider) -> Unit,
+    onRemove: (LlmProvider) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
     val uriHandler = LocalUriHandler.current
     var provider by remember { mutableStateOf(current ?: LlmProvider.GEMINI) }
     var key by remember { mutableStateOf("") }
+    val savedMasked = savedKeys[provider.id]
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -357,13 +364,46 @@ private fun ApiKeySheet(
             Spacer(Modifier.height(Dimens.Unit * 2))
             Text(Copy.AI_PROVIDER_PICK, style = CruxType.Eyebrow, color = InkLow)
             Spacer(Modifier.height(Dimens.Unit * 2))
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2),
+                verticalArrangement = Arrangement.spacedBy(Dimens.Unit * 2),
+            ) {
                 LlmProvider.entries.forEach { p ->
-                    Chip(label = p.displayName, selected = provider == p) { provider = p }
+                    Chip(label = p.displayName, selected = provider == p, saved = savedKeys.containsKey(p.id)) {
+                        provider = p
+                        key = ""
+                    }
                 }
             }
             Spacer(Modifier.height(Dimens.Unit * 4))
-            // the key field, styled like the omnibar's input well
+
+            // the saved key for the selected provider (if any): masked preview + a minus to remove it.
+            if (savedMasked != null) {
+                Text(Copy.AI_KEY_SAVED_LABEL, style = CruxType.Eyebrow, color = InkLow)
+                Spacer(Modifier.height(Dimens.Unit * 2))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.RadiusShell))
+                        .background(Overlay)
+                        .padding(start = 16.dp, end = Dimens.Unit, top = Dimens.Unit, bottom = Dimens.Unit),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(savedMasked, style = CruxType.Data, color = InkMid, modifier = Modifier.weight(1f))
+                    MinusButton { onRemove(provider) }
+                }
+                if (current != provider) {
+                    Spacer(Modifier.height(Dimens.Unit * 3))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PillButton(Copy.AI_KEY_USE, filled = true) { onUse(provider) }
+                    }
+                }
+                Spacer(Modifier.height(Dimens.Unit * 4))
+                Text(Copy.AI_KEY_REPLACE, style = CruxType.Secondary, color = InkMid)
+                Spacer(Modifier.height(Dimens.Unit * 2))
+            }
+
+            // the paste field, styled like the omnibar's input well
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -399,15 +439,26 @@ private fun ApiKeySheet(
             )
             Spacer(Modifier.height(Dimens.GroupGap))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (hasKey) {
-                    PillButton(Copy.AI_KEY_REMOVE, filled = false) { onRemove() }
-                    Spacer(Modifier.width(Dimens.Unit * 2))
-                }
                 PillButton(Copy.AI_KEY_SAVE, filled = true) {
                     if (key.isNotBlank()) onSave(provider, key)
                 }
             }
         }
+    }
+}
+
+/** The round − well that removes a stored key. Garnet-tinted glyph on the sheet's raised chip. */
+@Composable
+private fun MinusButton(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(CruxIcons.Minus, contentDescription = "remove key", tint = Overdue, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -580,15 +631,20 @@ private fun DangerRow(title: String, subtitle: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Chip(label: String, selected: Boolean, saved: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
-    Box(
+    Row(
         Modifier
             .clip(RoundedCornerShape(Dimens.RadiusPill))
             .background(if (selected) Overlay else Surface)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (saved) {
+            Box(Modifier.size(6.dp).clip(CircleShape).background(Garnet))
+            Spacer(Modifier.width(Dimens.Unit))
+        }
         Text(label, style = CruxType.Action, color = if (selected) InkHi else InkMid)
     }
 }

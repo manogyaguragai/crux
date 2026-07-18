@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -70,6 +71,16 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
             provider != null && withContext(Dispatchers.IO) { keyStore.hasKey(provider.id) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** Masked previews of every stored key, keyed by provider id — the BYOK sheet shows these so the
+     *  owner can see which providers are keyed (multiple at once) without the raw secret leaking. */
+    val savedKeys: StateFlow<Map<String, String>> =
+        keyRefresh.map { readMaskedKeys() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private suspend fun readMaskedKeys(): Map<String, String> = withContext(Dispatchers.IO) {
+        LlmProvider.entries.mapNotNull { p -> keyStore.keyFor(p.id)?.let { p.id to maskKey(it) } }.toMap()
+    }
+
     /** Flip the master switch. Enabling with no key is harmless — the chain stays gated on the key too. */
     fun setAiEnabled(on: Boolean) = launch { settings.setAiEnabled(on) }
 
@@ -82,11 +93,17 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         keyRefresh.value += 1
     }
 
-    /** Forget the active provider's key and switch AI off (nothing to call without a key). */
-    fun removeKey() = launch {
-        val provider = settings.aiProvider.first() ?: return@launch
+    /** Make [provider] the active one (it must already be keyed) and turn AI on. Lets the owner keep
+     *  keys for several providers and switch which one parses. */
+    fun useProvider(provider: LlmProvider) = launch {
+        settings.setAiProvider(provider)
+        settings.setAiEnabled(true)
+    }
+
+    /** Forget just [provider]'s key. If it was the active one, switch AI off (nothing left to call). */
+    fun removeKey(provider: LlmProvider) = launch {
         withContext(Dispatchers.IO) { keyStore.removeKey(provider.id) }
-        settings.setAiEnabled(false)
+        if (settings.aiProvider.first() == provider) settings.setAiEnabled(false)
         keyRefresh.value += 1
     }
 
@@ -129,6 +146,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private fun launch(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
     }
+
+    /** A recognisable-but-not-leaked preview: keep the head (identifies the provider prefix) and last 4. */
+    private fun maskKey(key: String): String =
+        if (key.length <= 10) "•".repeat(key.length) else "${key.take(6)}…${key.takeLast(4)}"
 
     companion object {
         /** The four text-size steps offered, as (label, scale). 1.0 is the shipped size. */
