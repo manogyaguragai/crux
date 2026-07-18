@@ -240,7 +240,7 @@ fun HomeScreen(
         // the omnibar, docked over the bottom; slides away on downward scroll, springs back on up.
         Omnibar(
             projects = knownProjects,
-            onCapture = { text, dismissed -> vm.capture(text, dismissed); launchFly(text) },
+            onCapture = { text, dismissed, source -> vm.capture(text, dismissed, source); launchFly(text) },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()

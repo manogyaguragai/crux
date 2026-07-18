@@ -4,6 +4,7 @@ import com.crux.app.data.ProjectRepository
 import com.crux.app.data.TaskRepository
 import com.crux.app.domain.isOverdue
 import com.crux.app.domain.model.ParsedBy
+import com.crux.app.domain.model.Source
 import com.crux.app.domain.model.TaskStatus
 import com.crux.app.intelligence.FuzzyResult
 import com.crux.app.intelligence.Intelligence
@@ -39,7 +40,7 @@ class CaptureProcessor(
     private val intelligence: Intelligence,
 ) {
 
-    suspend fun process(text: String, dismissed: Set<ParseField>): QueueResult {
+    suspend fun process(text: String, dismissed: Set<ParseField>, source: Source = Source.TYPED): QueueResult {
         if (text.isBlank()) return QueueResult.Done(null)
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault()
@@ -48,7 +49,7 @@ class CaptureProcessor(
         val rules = parse(text, today, known, dismissed)
         return when (val outcome = intelligence.interpret(text, today, zone, known)) {
             is LlmOutcome.Acted -> when (val action = outcome.action) {
-                is LlmAction.Add -> addTask(text, rules, action, now, zone)
+                is LlmAction.Add -> addTask(text, rules, action, now, zone, source)
                 is LlmAction.Complete -> doComplete(action.query, now, zone)
                 is LlmAction.Delete -> doDelete(action.query)
                 is LlmAction.Reschedule -> doReschedule(action, zone)
@@ -56,11 +57,11 @@ class CaptureProcessor(
             }
             // AI off or unavailable: file on rules alone. The AI status icon shows the "why" for a
             // failed call; the queue item just records a successful add.
-            LlmOutcome.Unavailable, LlmOutcome.Inactive -> addTask(text, rules, null, now, zone)
+            LlmOutcome.Unavailable, LlmOutcome.Inactive -> addTask(text, rules, null, now, zone, source)
         }
     }
 
-    private suspend fun addTask(text: String, rules: ParseResult, ai: LlmAction.Add?, now: Long, zone: ZoneId): QueueResult {
+    private suspend fun addTask(text: String, rules: ParseResult, ai: LlmAction.Add?, now: Long, zone: ZoneId, source: Source): QueueResult {
         var aiTouched = false
         var projectId = when (val p = rules.project) {
             is ProjectRef.Matched -> p.id
@@ -72,7 +73,7 @@ class CaptureProcessor(
             if (known != null) { projectId = known.id; aiTouched = true }
         }
         val safe = if (rules.title.isBlank()) rules.copy(title = text.trim()) else rules
-        var task = safe.toTask(projectId, zone, now)
+        var task = safe.toTask(projectId, zone, now, source)
         if (ai != null) {
             if (task.dueAt == null && ai.due != null) {
                 val withTime = ai.hasTime && ai.time != null

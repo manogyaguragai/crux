@@ -14,6 +14,7 @@ import com.crux.app.domain.WeekDay
 import com.crux.app.domain.groupStack
 import com.crux.app.domain.groupWeek
 import com.crux.app.domain.isOverdue
+import com.crux.app.domain.model.Source
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
 import com.crux.app.intelligence.Intelligence
@@ -124,8 +125,8 @@ class TasksViewModel(
      * the user fire many lines in quick succession without waiting on the slow LLM call; the queue icon
      * shows progress and any per-item errors. The heavy lifting lives in data/queue/CaptureProcessor.
      */
-    fun capture(text: String, dismissed: Set<ParseField> = emptySet()) {
-        captureQueue.enqueue(text, dismissed)
+    fun capture(text: String, dismissed: Set<ParseField> = emptySet(), source: Source = Source.TYPED) {
+        captureQueue.enqueue(text, dismissed, source)
     }
 
     fun complete(task: Task) {

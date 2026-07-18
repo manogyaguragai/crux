@@ -33,6 +33,12 @@ class ToTaskTest {
         assertEquals(Source.TYPED, task.source)
     }
 
+    @Test fun `a spoken capture carries Source VOICE through the fold`() {
+        val r = parse("call the dentist tomorrow", today, emptyList())
+        val task = r.toTask(projectId = null, zone = zone, now = now, source = Source.VOICE)
+        assertEquals(Source.VOICE, task.source) // provenance survives so detail reads "via voice"
+    }
+
     @Test fun `an all-day task anchors to midnight`() {
         val r = parse("call didi sunday", today, emptyList())
         val task = r.toTask(projectId = null, zone = zone, now = now)

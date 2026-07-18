@@ -65,6 +65,7 @@ import com.crux.app.ui.Copy
 import com.crux.app.ui.SettingsViewModel
 import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.theme.Cream
+import com.crux.app.ui.components.LocalVoice
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Garnet
@@ -78,7 +79,11 @@ import com.crux.app.ui.theme.Surface
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.crux.app.voice.VoiceController
+import com.crux.app.voice.VoiceModel
+import com.crux.app.voice.VoiceState
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Settings (a pushed screen, ui-ux-decisions.md). Appearance (OLED deep, text size), notifications
@@ -258,6 +263,12 @@ fun SettingsScreen(
                 subtitle = Copy.AI_KEY_REMOVE,
                 onClick = { showKeySheet = true },
             )
+        }
+        // voice (phase 4): the on-device model lives here — set up, switch, or remove. Independent of
+        // AI assist above; voice needs no key and runs fully offline once a model is downloaded.
+        LocalVoice.current?.let { voice ->
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            VoiceRow(voice)
         }
         Spacer(Modifier.height(Dimens.GroupGap))
 
@@ -637,6 +648,53 @@ private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(title, style = CruxType.Body, color = InkHi)
             Text(subtitle, style = CruxType.Secondary, color = InkMid)
+        }
+    }
+}
+
+/**
+ * Voice model management (phase 4). Reads the shared [VoiceController] so a download started from the
+ * omnibar shows its progress here too. Not set up → offer the lightweight/capable download; a light
+ * model present → offer switching up (which reclaims the old files once the new one is in) or removing;
+ * a capable model present → offer removing. Calm, positive framing throughout (never "accuracy").
+ */
+@Composable
+private fun VoiceRow(voice: VoiceController) {
+    val state by voice.state.collectAsStateWithLifecycle()
+    val installed by voice.installed.collectAsStateWithLifecycle()
+    val status = when (val s = state) {
+        is VoiceState.Downloading -> "${Copy.VOICE_DOWNLOADING} · ${(s.fraction * 100).roundToInt()}%"
+        VoiceState.Preparing -> Copy.VOICE_PREPARING
+        is VoiceState.Failed -> s.message
+        else -> when (installed) {
+            VoiceModel.LIGHT -> Copy.SETTINGS_VOICE_LIGHT_READY
+            VoiceModel.CAPABLE -> Copy.SETTINGS_VOICE_CAPABLE_READY
+            null -> Copy.SETTINGS_VOICE_NONE
+        }
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Text(Copy.SETTINGS_VOICE, style = CruxType.Body, color = InkHi)
+        Text(status, style = CruxType.Secondary, color = InkMid)
+        val busy = state is VoiceState.Downloading || state is VoiceState.Preparing
+        if (!busy) {
+            Spacer(Modifier.height(Dimens.Unit * 3))
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
+                when (installed) {
+                    null -> {
+                        PillButton(Copy.VOICE_LIGHT, filled = false) { voice.download(VoiceModel.LIGHT) }
+                        PillButton(Copy.VOICE_CAPABLE, filled = false) { voice.download(VoiceModel.CAPABLE) }
+                    }
+                    VoiceModel.LIGHT -> {
+                        PillButton(Copy.SETTINGS_VOICE_UPGRADE, filled = false) {
+                            voice.download(VoiceModel.CAPABLE, replaceOthers = true)
+                        }
+                        PillButton(Copy.SETTINGS_VOICE_REMOVE, filled = false) { voice.remove(VoiceModel.LIGHT) }
+                    }
+                    VoiceModel.CAPABLE -> {
+                        PillButton(Copy.SETTINGS_VOICE_REMOVE, filled = false) { voice.remove(VoiceModel.CAPABLE) }
+                    }
+                }
+            }
         }
     }
 }

@@ -275,7 +275,7 @@ fun parse(
  * due date + time collapse to an epoch-milli instant in [zone]; all-day tasks anchor to midnight.
  * parsedBy is RULES when the grammar filled any field, MANUAL when the line was pure title.
  */
-fun ParseResult.toTask(projectId: Long?, zone: ZoneId, now: Long): Task {
+fun ParseResult.toTask(projectId: Long?, zone: ZoneId, now: Long, source: Source = Source.TYPED): Task {
     val dueAt = dueDate?.let { d ->
         val t = if (hasTime) time ?: LocalTime.MIDNIGHT else LocalTime.MIDNIGHT
         d.atTime(t).atZone(zone).toInstant().toEpochMilli()
@@ -292,7 +292,7 @@ fun ParseResult.toTask(projectId: Long?, zone: ZoneId, now: Long): Task {
         recurrenceWeekday = recurrenceWeekday,
         recurrenceDay = recurrenceDay,
         createdAt = now,
-        source = Source.TYPED,
+        source = source,
         parsedBy = if (grammarTouched) ParsedBy.RULES else ParsedBy.MANUAL,
     )
 }

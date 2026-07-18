@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.crux.app.domain.model.Source
 import com.crux.app.intelligence.ParseField
 import com.crux.app.work.QueueWorker
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,9 +37,9 @@ class CaptureQueue(context: Context) {
         if (_items.value.any { it.status == QueueStatus.PENDING }) scheduleDrain()
     }
 
-    fun enqueue(text: String, dismissed: Set<ParseField>) {
+    fun enqueue(text: String, dismissed: Set<ParseField>, source: Source = Source.TYPED) {
         if (text.isBlank()) return
-        val item = QueueItem(idGen.incrementAndGet(), text.trim(), dismissed, QueueStatus.PENDING, null, System.currentTimeMillis())
+        val item = QueueItem(idGen.incrementAndGet(), text.trim(), dismissed, QueueStatus.PENDING, null, System.currentTimeMillis(), source)
         mutate { it + item }
         scheduleDrain()
     }
@@ -113,7 +114,8 @@ class CaptureQueue(context: Context) {
                     .put("dismissed", JSONArray().apply { item.dismissed.forEach { put(it.name) } })
                     .put("status", item.status.name)
                     .put("message", item.message ?: JSONObject.NULL)
-                    .put("createdAt", item.createdAt),
+                    .put("createdAt", item.createdAt)
+                    .put("source", item.source.name),
             )
         }
         return arr.toString()
@@ -133,6 +135,7 @@ class CaptureQueue(context: Context) {
                 status = runCatching { QueueStatus.valueOf(o.getString("status")) }.getOrDefault(QueueStatus.PENDING),
                 message = if (o.isNull("message")) null else o.optString("message"),
                 createdAt = o.optLong("createdAt"),
+                source = runCatching { Source.valueOf(o.optString("source")) }.getOrDefault(Source.TYPED),
             )
         }
     }

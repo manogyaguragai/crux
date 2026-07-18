@@ -1,14 +1,21 @@
 package com.crux.app.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,12 +37,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.domain.model.RecurrenceType
+import com.crux.app.domain.model.Source
 import com.crux.app.intelligence.KnownProject
 import com.crux.app.intelligence.ParseField
 import com.crux.app.intelligence.ParseNotice
@@ -44,19 +60,25 @@ import com.crux.app.intelligence.parse
 import com.crux.app.ui.Copy
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Garnet
+import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.Oxblood
 import com.crux.app.ui.theme.Raised
 import com.crux.app.ui.theme.Surface
+import com.crux.app.voice.VoiceController
+import com.crux.app.voice.VoiceModel
+import com.crux.app.voice.VoiceState
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * The omnibar: the single capture input, the centerpiece of home (ui-ux-decisions.md).
@@ -71,7 +93,7 @@ import java.util.Locale
 @Composable
 fun Omnibar(
     projects: List<KnownProject>,
-    onCapture: (String, Set<ParseField>) -> Unit,
+    onCapture: (String, Set<ParseField>, Source) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
@@ -79,16 +101,38 @@ fun Omnibar(
     var dismissed by remember { mutableStateOf(emptySet<ParseField>()) }
     val today = remember { LocalDate.now() } // preview only; the VM re-parses authoritatively
 
+    // voice (phase 4): the mic rides the input's right edge. Hidden until the controller exists.
+    // Each finished transcription lands in the input for review (never auto-submits), so a misheard
+    // word costs one tap to fix — capture can never fail. [spokenOrigin] remembers the line came from
+    // a take (surviving small edits to fix a word) so the captured task keeps its "via voice" mark; it
+    // clears once the line is emptied or a plain typed line begins.
+    val voice = LocalVoice.current
+    val voiceState = voice?.state?.collectAsStateWithLifecycle()
+    val installed = voice?.installed?.collectAsStateWithLifecycle()
+    var showChooser by remember { mutableStateOf(false) }
+    var spokenOrigin by remember { mutableStateOf(false) }
+    if (voice != null) {
+        LaunchedEffect(voice) {
+            voice.transcripts.collect { spoken ->
+                text = if (text.isBlank()) spoken else "$text $spoken"
+                dismissed = emptySet()
+                spokenOrigin = true
+            }
+        }
+    }
+
     fun submit() {
         if (text.isNotBlank()) {
-            onCapture(text, dismissed)
+            onCapture(text, dismissed, if (spokenOrigin) Source.VOICE else Source.TYPED)
             text = ""
             dismissed = emptySet()
+            spokenOrigin = false
         }
     }
 
     val parsed: ParseResult? = if (text.isBlank()) null else parse(text, today, projects, dismissed)
     val chips = parsed?.let { chipsOf(it) } ?: emptyList()
+    val voiceStatus = voiceState?.value?.let { voiceStatusText(it) }
 
     Box(modifier) {
         // the bloom: radial oxblood behind the shell, per design-tokens.md.
@@ -107,7 +151,15 @@ fun Omnibar(
                     )
                 },
         )
-        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth()) {
+            // the one-time voice download chooser rides above the input, like the parse chips.
+            if (voice != null && showChooser) {
+                VoiceChooser(
+                    onPick = { model -> voice.download(model); showChooser = false },
+                    onDismiss = { showChooser = false },
+                )
+                Spacer(Modifier.height(Dimens.Unit * 2))
+            }
             if (chips.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier
@@ -144,13 +196,22 @@ fun Omnibar(
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
                     if (text.isEmpty()) {
-                        Text(Copy.OMNIBAR_PLACEHOLDER, style = CruxType.Body, color = InkLow)
+                        // while voice is working, the status ("listening", "downloading voice · 42%")
+                        // takes the placeholder's spot instead of adding another line of chrome.
+                        Text(
+                            text = voiceStatus ?: Copy.OMNIBAR_PLACEHOLDER,
+                            style = CruxType.Body,
+                            color = if (voiceStatus != null) InkMid else InkLow,
+                        )
                     }
                     BasicTextField(
                         value = text,
                         onValueChange = {
                             text = it
-                            if (it.isBlank()) dismissed = emptySet()
+                            if (it.isBlank()) {
+                                dismissed = emptySet()
+                                spokenOrigin = false // an emptied line is no longer a voice line
+                            }
                         },
                         textStyle = CruxType.Body.copy(color = InkHi),
                         singleLine = true,
@@ -160,9 +221,165 @@ fun Omnibar(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (voice != null && voiceState != null) {
+                    Spacer(Modifier.width(8.dp))
+                    MicButton(
+                        state = voiceState.value,
+                        hasModel = installed?.value != null,
+                        onNeedModel = { showChooser = true },
+                        voice = voice,
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * The mic that rides the omnibar's right edge. With a model present it is press-and-hold: press starts
+ * recording, release transcribes. With no model a tap opens the one-time download chooser. The press
+ * gesture keys only on [hasModel]/permission — never on the fine-grained [state] — so a hold survives
+ * the Ready→Listening→Ready cycle without the recorder being stranded by a mid-hold restart.
+ */
+@Composable
+private fun MicButton(
+    state: VoiceState,
+    hasModel: Boolean,
+    onNeedModel: () -> Unit,
+    voice: VoiceController,
+) {
+    val context = LocalContext.current
+    var granted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted = it }
+
+    val listening = state is VoiceState.Listening
+    val busy = state is VoiceState.Downloading || state is VoiceState.Preparing ||
+        state is VoiceState.Transcribing
+    val tint = when {
+        listening || state is VoiceState.Failed -> Ember
+        hasModel && !busy -> InkMid
+        else -> InkLow
+    }
+    val fraction = (state as? VoiceState.Downloading)?.fraction ?: 0f
+
+    Box(
+        Modifier
+            .size(40.dp)
+            .pointerInput(hasModel, granted) {
+                if (hasModel) {
+                    detectTapGestures(
+                        onPress = {
+                            if (!granted) {
+                                permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            } else {
+                                voice.startListening()
+                                tryAwaitRelease()
+                                voice.stopListening()
+                            }
+                        },
+                    )
+                } else {
+                    detectTapGestures(onTap = { onNeedModel() })
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (state is VoiceState.Downloading) {
+            Box(
+                Modifier.matchParentSize().drawBehind {
+                    val sw = 2.dp.toPx()
+                    val inset = sw / 2 + 2.dp.toPx()
+                    val arc = Size(size.width - inset * 2, size.height - inset * 2)
+                    drawArc(
+                        color = Ember.copy(alpha = 0.25f), startAngle = -90f, sweepAngle = 360f,
+                        useCenter = false, topLeft = Offset(inset, inset), size = arc,
+                        style = Stroke(width = sw, cap = StrokeCap.Round),
+                    )
+                    drawArc(
+                        color = Ember, startAngle = -90f, sweepAngle = 360f * fraction,
+                        useCenter = false, topLeft = Offset(inset, inset), size = arc,
+                        style = Stroke(width = sw, cap = StrokeCap.Round),
+                    )
+                },
+            )
+        }
+        Icon(
+            imageVector = CruxIcons.Mic,
+            contentDescription = Copy.SETTINGS_VOICE,
+            tint = tint,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+/** The one-time download prompt: pick the lightweight or capable model. Calm, positive framing. */
+@Composable
+private fun VoiceChooser(
+    onPick: (VoiceModel) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.RadiusShell))
+            .background(Raised)
+            .padding(Dimens.Unit * 4),
+    ) {
+        Text(Copy.VOICE_SETUP_TITLE, style = CruxType.Subhead, color = InkHi)
+        Spacer(Modifier.height(Dimens.Unit))
+        Text(Copy.VOICE_SETUP_SUB, style = CruxType.Secondary, color = InkMid)
+        Spacer(Modifier.height(Dimens.Unit * 3))
+        VoiceChoiceRow(Copy.VOICE_LIGHT, Copy.VOICE_LIGHT_SUB) { onPick(VoiceModel.LIGHT) }
+        Box(Modifier.fillMaxWidth().height(Dimens.HairlineWidth).background(Hairline))
+        VoiceChoiceRow(Copy.VOICE_CAPABLE, Copy.VOICE_CAPABLE_SUB) { onPick(VoiceModel.CAPABLE) }
+        Spacer(Modifier.height(Dimens.Unit * 2))
+        val cancel = remember { MutableInteractionSource() }
+        Text(
+            text = Copy.VOICE_SETUP_CANCEL,
+            style = CruxType.Data,
+            color = InkLow,
+            modifier = Modifier
+                .clip(RoundedCornerShape(Dimens.RadiusPill))
+                .clickable(interactionSource = cancel, indication = null) { onDismiss() }
+                .padding(vertical = Dimens.Unit, horizontal = Dimens.Unit * 2),
+        )
+    }
+}
+
+@Composable
+private fun VoiceChoiceRow(title: String, sub: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.RadiusCard))
+            .clickable(interactionSource = interaction, indication = null) { onClick() }
+            .padding(vertical = Dimens.Unit * 2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = CruxType.Body, color = InkHi)
+            Text(sub, style = CruxType.Secondary, color = InkMid)
+        }
+        Icon(CruxIcons.Add, contentDescription = null, tint = Garnet, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** The voice status shown in the placeholder's spot while a take or a download is in flight. */
+private fun voiceStatusText(state: VoiceState): String? = when (state) {
+    is VoiceState.Downloading -> "${Copy.VOICE_DOWNLOADING} · ${(state.fraction * 100).roundToInt()}%"
+    VoiceState.Preparing -> Copy.VOICE_PREPARING
+    VoiceState.Listening -> Copy.VOICE_LISTENING
+    VoiceState.Transcribing -> Copy.VOICE_TRANSCRIBING
+    is VoiceState.Failed -> state.message
+    VoiceState.Ready, VoiceState.NeedsModel -> null
 }
 
 /** One preview chip. [field] null = a non-dismissable notice; otherwise tapping it dismisses [field]. */

@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.components.LocalAiPresence
 import com.crux.app.ui.components.LocalOpenAiSettings
 import com.crux.app.ui.components.LocalQueueBar
+import com.crux.app.ui.components.LocalVoice
 import com.crux.app.ui.components.QueueBar
 import com.crux.app.ui.components.QueueDropdown
 import androidx.compose.ui.graphics.TransformOrigin
@@ -151,6 +152,7 @@ fun CruxApp() {
         LocalAiPresence provides aiPresence,
         LocalOpenAiSettings provides { nav.navigate("settings?focus=ai") },
         LocalQueueBar provides QueueBar(queueActive, queueFailed) { queueOpen = true },
+        LocalVoice provides container.voiceController,
     ) {
     Box(Modifier.fillMaxSize()) {
         Scaffold(

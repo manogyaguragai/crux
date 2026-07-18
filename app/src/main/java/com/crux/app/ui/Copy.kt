@@ -23,6 +23,22 @@ object Copy {
     const val OMNIBAR_CHIP_NEW = "new"
     const val OMNIBAR_NOTICE_TWO_DATES = "two dates. kept the first"
 
+    // voice capture (phase 4). calm, positive framing: the two models are "lightweight" and
+    // "capable", never "less/more accurate". the download is one-time and stays on device.
+    const val VOICE_SETUP_TITLE = "set up voice"
+    const val VOICE_SETUP_SUB = "a one-time download. after that, hold-to-talk works offline on your device."
+    const val VOICE_LIGHT = "lightweight"
+    const val VOICE_LIGHT_SUB = "about 100 mb, quick to set up"
+    const val VOICE_CAPABLE = "capable"
+    const val VOICE_CAPABLE_SUB = "about 150 mb, hears more, best on wifi"
+    const val VOICE_SETUP_CANCEL = "not now"
+    const val VOICE_DOWNLOADING = "downloading voice"
+    const val VOICE_PREPARING = "getting ready"
+    const val VOICE_LISTENING = "listening"
+    const val VOICE_TRANSCRIBING = "writing it down"
+    const val VOICE_HINT = "hold to talk"
+    const val VOICE_MIC_DENIED = "voice needs the microphone. enable it in settings."
+
     // undo snackbar (copy bank: "done. undo", where undo is the action)
     const val SNACKBAR_DONE = "done."
     const val SNACKBAR_UNDO = "undo"
@@ -98,6 +114,16 @@ object Copy {
     const val AI_KEY_SAVED_LABEL = "saved key"
     const val AI_KEY_USE = "use this key"
     const val AI_KEY_REPLACE = "paste a new key below to replace it"
+
+    // voice model management (phase 4). shown in the intelligence section of settings.
+    const val SETTINGS_VOICE = "voice"
+    const val SETTINGS_VOICE_SUB = "hold-to-talk capture, on device"
+    const val SETTINGS_VOICE_NONE = "not set up yet"
+    const val SETTINGS_VOICE_LIGHT_READY = "lightweight model ready"
+    const val SETTINGS_VOICE_CAPABLE_READY = "capable model ready"
+    const val SETTINGS_VOICE_SETUP = "set up"
+    const val SETTINGS_VOICE_UPGRADE = "switch to capable"
+    const val SETTINGS_VOICE_REMOVE = "remove"
 
     // command mode + review outcomes (phase 3). proposed, pending owner approval.
     const val AI_NOT_FOUND = "couldn't find that task"

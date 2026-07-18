@@ -23,7 +23,7 @@ class QueueWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             val next = queue.nextPending() ?: break
             queue.markProcessing(next.id)
             val result = try {
-                processor.process(next.text, next.dismissed)
+                processor.process(next.text, next.dismissed, next.source)
             } catch (e: Exception) {
                 QueueResult.Failed(e.message ?: "something went wrong")
             }

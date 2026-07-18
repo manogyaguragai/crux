@@ -19,6 +19,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // sherpa-onnx (phase 4 voice) ships native .so for four ABIs; the phone is arm64, so
+        // package only that one — otherwise the 25 MB onnxruntime lib lands four times in the APK.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     // Room: export the schema from day one so migrations are testable.
@@ -55,7 +61,31 @@ kotlin {
     jvmToolchain(17)
 }
 
+// sherpa-onnx: the on-device speech-to-text engine (phase 4 voice). The prebuilt Android AAR
+// (~55 MB — the JNI .so libs + the compiled Kotlin API) is too large to commit, so it is
+// gitignored and fetched on demand here. The build depends on this task, so a fresh checkout
+// pulls it automatically on the first build. The Whisper model itself is downloaded at RUNTIME
+// on the user's device (first mic tap), never bundled.
+val sherpaOnnxVersion = "1.13.2"
+val sherpaOnnxAar = layout.projectDirectory.file("libs/sherpa-onnx-$sherpaOnnxVersion.aar").asFile
+val fetchSherpaOnnx by tasks.registering {
+    description = "Download the sherpa-onnx Android AAR into app/libs/ if it is not already present."
+    onlyIf { !sherpaOnnxAar.exists() }
+    doLast {
+        sherpaOnnxAar.parentFile.mkdirs()
+        val url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/" +
+            "v$sherpaOnnxVersion/sherpa-onnx-$sherpaOnnxVersion.aar"
+        logger.lifecycle("fetching sherpa-onnx AAR from $url")
+        uri(url).toURL().openStream().use { input ->
+            sherpaOnnxAar.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(fetchSherpaOnnx) }
+
 dependencies {
+    implementation(files(sherpaOnnxAar)) // the vendored sherpa-onnx AAR (fetched by fetchSherpaOnnx)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
 

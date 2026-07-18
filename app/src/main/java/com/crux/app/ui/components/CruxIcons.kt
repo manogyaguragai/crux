@@ -113,6 +113,15 @@ object CruxIcons {
         }.build()
     }
 
+    /** mic: hold-to-talk voice capture (phase 4). a capsule mic resting in its cradle. viewBox 24. */
+    val Mic: ImageVector by lazy {
+        ImageVector.Builder("mic", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M12 3.6 a2.6 2.6 0 0 1 2.6 2.6 v4.3 a2.6 2.6 0 0 1 -5.2 0 V6.2 A2.6 2.6 0 0 1 12 3.6 Z", join = StrokeJoin.Round)
+            stroke("M6.6 10.6 a5.4 5.4 0 0 0 10.8 0", join = StrokeJoin.Round)
+            stroke("M12 16v3.4M9.2 19.8h5.6", join = StrokeJoin.Round)
+        }.build()
+    }
+
     /** archive (soft delete): a box with a down arrow filing into it. viewBox 24. */
     val Archive: ImageVector by lazy {
         ImageVector.Builder("archive", 24.dp, 24.dp, 24f, 24f).apply {
