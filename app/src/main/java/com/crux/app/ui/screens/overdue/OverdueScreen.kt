@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -35,9 +36,15 @@ import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.InkHi
+import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Motion
+import com.crux.app.ui.theme.Overdue
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The overdue pile (ui-ux-decisions.md / phases.md): a pushed screen reached by tapping the home
@@ -67,7 +74,15 @@ fun OverdueScreen(vm: TasksViewModel, onBack: () -> Unit, onOpenTask: (Long) -> 
             Icon(CruxIcons.Back, contentDescription = "back", tint = InkMid, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.height(Dimens.Unit * 2))
+        if (tasks.isNotEmpty()) {
+            Text(Copy.OVERDUE_EYEBROW.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+            Spacer(Modifier.height(Dimens.Unit))
+        }
         Text(Copy.OVERDUE_TITLE, style = CruxType.Display, color = InkHi)
+        if (tasks.isNotEmpty()) {
+            Spacer(Modifier.height(Dimens.Unit))
+            OverdueSubline(tasks)
+        }
         Spacer(Modifier.height(Dimens.GroupGap))
 
         if (tasks.isEmpty()) {
@@ -97,6 +112,22 @@ fun OverdueScreen(vm: TasksViewModel, onBack: () -> Unit, onOpenTask: (Long) -> 
                     )
                 }
             }
+        }
+    }
+}
+
+/** The subline under "overdue": the waiting count in overdue red, plus the age of the oldest stone. */
+@Composable
+private fun OverdueSubline(tasks: List<com.crux.app.domain.model.Task>) {
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    val oldestDays = tasks.mapNotNull { it.dueAt }
+        .minOfOrNull { ChronoUnit.DAYS.between(Instant.ofEpochMilli(it).atZone(zone).toLocalDate(), today) }
+        ?.coerceAtLeast(0)
+    Row {
+        Text("${tasks.size} waiting", style = CruxType.Data, color = Overdue)
+        if (oldestDays != null && oldestDays > 0) {
+            Text(" · oldest $oldestDays days", style = CruxType.Data, color = InkLow)
         }
     }
 }

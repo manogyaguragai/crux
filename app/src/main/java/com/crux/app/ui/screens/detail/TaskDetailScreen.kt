@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,9 +48,11 @@ import com.crux.app.domain.model.ParsedBy
 import com.crux.app.domain.model.RecurrenceType
 import com.crux.app.domain.model.Source
 import com.crux.app.domain.model.Task
+import com.crux.app.domain.model.TaskStatus
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TaskDetailViewModel
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.components.HoldCheckbox
 import com.crux.app.ui.theme.Blush
 import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
@@ -127,27 +130,32 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
             return@Column
         }
 
-        // title (editable, the one large field)
-        BasicTextField(
-            value = titleDraft,
-            onValueChange = { titleDraft = it },
-            textStyle = CruxType.Subhead.copy(color = InkHi),
-            cursorBrush = SolidColor(Garnet),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { if (!it.isFocused) commitText() },
-            decorationBox = { inner ->
-                if (titleDraft.isEmpty()) {
-                    Text(Copy.DETAIL_TITLE_PLACEHOLDER, style = CruxType.Subhead, color = InkLow)
-                }
-                inner()
-            },
-        )
+        // title with its leading stone (mockup .dtitle). the hold is display-only here; ticking a task
+        // lives on the list rows, so this reflects state without a mark-done button that has no home.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HoldCheckbox(checked = current.status == TaskStatus.DONE, onToggle = null)
+            Spacer(Modifier.width(Dimens.Unit))
+            BasicTextField(
+                value = titleDraft,
+                onValueChange = { titleDraft = it },
+                textStyle = CruxType.Subhead.copy(color = InkHi),
+                cursorBrush = SolidColor(Garnet),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { if (!it.isFocused) commitText() },
+                decorationBox = { inner ->
+                    if (titleDraft.isEmpty()) {
+                        Text(Copy.DETAIL_TITLE_PLACEHOLDER, style = CruxType.Subhead, color = InkLow)
+                    }
+                    inner()
+                },
+            )
+        }
         Spacer(Modifier.height(Dimens.GroupGap))
 
         // project (a model-inferred project wears the blush `ai` treatment; tap another chip to change)
         val projectByAi = current.parsedBy == ParsedBy.AI && current.projectId != null
-        Section(Copy.DETAIL_PROJECT) {
+        Frow(Copy.DETAIL_PROJECT) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
                 Chip(Copy.DETAIL_INBOX, selected = current.projectId == null) { vm.setProject(null) }
                 projects.forEach { p ->
@@ -158,7 +166,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
         }
 
         // priority (p1 carries the rationed garnet fill; p2-p4 a neutral fill)
-        Section(Copy.DETAIL_PRIORITY) {
+        Frow(Copy.DETAIL_PRIORITY) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
                 (1..4).forEach { p ->
                     Chip(
@@ -171,7 +179,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
         }
 
         // due date
-        Section(Copy.DETAIL_DUE) {
+        Frow(Copy.DETAIL_DUE) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Chip(
                     label = current.dueAt?.let { formatDate(it, zone) } ?: Copy.DETAIL_SET_DATE,
@@ -186,7 +194,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
 
         // time (only meaningful once there is a date)
         if (current.dueAt != null) {
-            Section(Copy.DETAIL_TIME) {
+            Frow(Copy.DETAIL_TIME) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
                     Chip(Copy.DETAIL_ALL_DAY, selected = !current.hasTime) {
                         vm.setTime(startOfDay(current.dueAt, zone), hasTime = false)
@@ -200,7 +208,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
         }
 
         // repeat
-        Section(Copy.DETAIL_REPEAT) {
+        Frow(Copy.DETAIL_REPEAT) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
                 Chip(Copy.DETAIL_NONE, selected = current.recurrenceType == null) {
                     vm.setRecurrence(null, null, null)
@@ -309,6 +317,33 @@ private fun Section(label: String, content: @Composable () -> Unit) {
     Spacer(Modifier.height(Dimens.Unit * 2))
     content()
     Spacer(Modifier.height(Dimens.GroupGap))
+}
+
+/**
+ * A tabular field row (mockup .frow): a fixed-width mono label on the left, the value chips on the
+ * right, a hairline top-border tying the rows into one block. Replaces the stacked [Section] look for
+ * the discrete fields (project, priority, due, time, repeat); notes keeps its own stacked treatment.
+ */
+@Composable
+private fun Frow(label: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(Dimens.HairlineWidth).background(Hairline))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 54.dp)
+                .padding(vertical = Dimens.Unit * 2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = CruxType.Eyebrow,
+                color = InkLow,
+                modifier = Modifier.width(76.dp),
+            )
+            Box(Modifier.weight(1f)) { content() }
+        }
+    }
 }
 
 /**

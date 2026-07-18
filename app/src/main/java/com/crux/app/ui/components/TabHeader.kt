@@ -2,10 +2,12 @@ package com.crux.app.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
@@ -35,29 +37,40 @@ fun SettingsGear(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * The shared header for the titled tabs (stack, projects, review): the Display title on the left, an
- * optional [trailing] control (e.g. projects' edit toggle), then the settings gear on the far right.
- * Home has its own header (nudge count + gear) because it carries no title.
+ * The shared header for the titled tabs (stack, projects, review). Three lines, matching the mockups:
+ * a mono [eyebrow] over the Display title, then a mono [subline] beneath (a slot so a screen can put a
+ * live count with its ember "hot" span in it). The [trailing] control (e.g. projects' edit toggle) and
+ * the queue / ai / settings icons ride on the right, aligned with the title. Home has its own header
+ * (nudge count + gear) because it carries no title.
  */
 @Composable
 fun TabHeader(
     title: String,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    subline: (@Composable () -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = title, style = CruxType.Display, color = InkHi)
-        Spacer(Modifier.weight(1f))
-        trailing()
-        Spacer(Modifier.width(Dimens.Unit * 2))
-        QueueIcon()
-        Spacer(Modifier.width(Dimens.Unit * 2))
-        AiStatusIcon()
-        Spacer(Modifier.width(Dimens.Unit * 2))
-        SettingsGear(onClick = onOpenSettings)
+    Column(modifier.fillMaxWidth()) {
+        if (eyebrow != null) {
+            Text(text = eyebrow.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+            Spacer(Modifier.height(Dimens.Unit))
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(text = title, style = CruxType.Display, color = InkHi)
+            Spacer(Modifier.weight(1f))
+            trailing()
+            Spacer(Modifier.width(Dimens.Unit * 2))
+            QueueIcon()
+            Spacer(Modifier.width(Dimens.Unit * 2))
+            AiStatusIcon()
+            Spacer(Modifier.width(Dimens.Unit * 2))
+            SettingsGear(onClick = onOpenSettings)
+        }
+        if (subline != null) {
+            Spacer(Modifier.height(Dimens.Unit))
+            subline()
+        }
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -77,6 +78,7 @@ import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.review.ReviewScreen
 import com.crux.app.ui.screens.settings.SettingsScreen
 import com.crux.app.ui.screens.stack.StackScreen
+import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
@@ -120,6 +122,11 @@ fun CruxApp() {
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val reviewVm: ReviewViewModel = viewModel(factory = ReviewViewModel.factory(container))
+    // what is waiting in review, for the tab badge (mockup .tbadge): the live priority nudges plus any
+    // pending inbox proposals.
+    val reviewNudges by reviewVm.nudges.collectAsStateWithLifecycle()
+    val reviewProposals by reviewVm.proposals.collectAsStateWithLifecycle()
+    val reviewWaiting = reviewNudges.size + reviewProposals.size
     val aiStatusVm: AiStatusViewModel = viewModel(factory = AiStatusViewModel.factory(container))
     val aiPresence by aiStatusVm.presence.collectAsStateWithLifecycle()
     val aiNotice by aiStatusVm.notice.collectAsStateWithLifecycle()
@@ -160,7 +167,7 @@ fun CruxApp() {
             // soft keyboard, so capture stays fully visible while typing (adjustResize in manifest).
             modifier = Modifier.imePadding(),
             containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = { CruxTabBar(nav) },
+            bottomBar = { CruxTabBar(nav, reviewWaiting) },
         ) { innerPadding ->
             val openTask: (Long) -> Unit = { id -> nav.navigate("task/$id") }
             val openSettings: () -> Unit = { nav.navigate("settings") }
@@ -284,7 +291,7 @@ fun CruxApp() {
 }
 
 @Composable
-private fun CruxTabBar(nav: NavController) {
+private fun CruxTabBar(nav: NavController, reviewBadge: Int) {
     val backStackEntry by nav.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -301,6 +308,7 @@ private fun CruxTabBar(nav: NavController) {
                 CruxTabItem(
                     tab = tab,
                     selected = currentRoute == tab.route,
+                    badge = if (tab == CruxTab.Review) reviewBadge else 0,
                     onClick = {
                         if (currentRoute != tab.route) {
                             // If we're leaving a PUSHED screen (settings/overdue/history/detail), don't
@@ -323,7 +331,7 @@ private fun CruxTabBar(nav: NavController) {
 }
 
 @Composable
-private fun RowScope.CruxTabItem(tab: CruxTab, selected: Boolean, onClick: () -> Unit) {
+private fun RowScope.CruxTabItem(tab: CruxTab, selected: Boolean, badge: Int = 0, onClick: () -> Unit) {
     val tint = if (selected) Ember else InkLow
     val interaction = remember { MutableInteractionSource() }
     Box(
@@ -343,6 +351,19 @@ private fun RowScope.CruxTabItem(tab: CruxTab, selected: Boolean, onClick: () ->
                     .clip(RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
                     .background(Garnet),
             )
+        }
+        // the count badge (mockup .tbadge): a garnet pill riding up-right of the glyph.
+        if (badge > 0) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(x = 14.dp, y = 6.dp)
+                    .clip(RoundedCornerShape(Dimens.RadiusPill))
+                    .background(Garnet)
+                    .padding(horizontal = Dimens.Unit + 2.dp, vertical = 1.dp),
+            ) {
+                Text(text = badge.toString(), style = CruxType.Data, color = Cream)
+            }
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

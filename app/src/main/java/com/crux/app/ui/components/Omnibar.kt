@@ -4,6 +4,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -42,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -66,7 +73,9 @@ import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
+import com.crux.app.ui.theme.Motion
 import com.crux.app.ui.theme.Oxblood
+import com.crux.app.ui.theme.rememberReducedMotion
 import com.crux.app.ui.theme.Raised
 import com.crux.app.ui.theme.Surface
 import com.crux.app.voice.VoiceController
@@ -134,23 +143,13 @@ fun Omnibar(
     val chips = parsed?.let { chipsOf(it) } ?: emptyList()
     val voiceStatus = voiceState?.value?.let { voiceStatusText(it) }
 
+    val listening = voiceState?.value is VoiceState.Listening
+
     Box(modifier) {
-        // the bloom: radial oxblood behind the shell, per design-tokens.md.
-        Spacer(
-            Modifier
-                .matchParentSize()
-                .drawBehind {
-                    drawRect(
-                        brush = Brush.radialGradient(
-                            0.00f to Oxblood.copy(alpha = 0.55f),
-                            0.46f to Oxblood.copy(alpha = 0.18f),
-                            1.00f to Color.Transparent,
-                            center = Offset(size.width * 0.5f, size.height * 0.82f),
-                            radius = 0.72f * maxOf(size.width, size.height),
-                        ),
-                    )
-                },
-        )
+        // the bloom: an oxblood-to-garnet radiance behind the shell (home and app icon only). It
+        // breathes — one of the app's only two loops. Idle it drifts +/-4% over 6s; while a take is
+        // live it tightens and quickens to 1.6s, breathing with the mic (design-tokens.md motion).
+        Bloom(listening = listening, modifier = Modifier.matchParentSize())
         Column(Modifier.fillMaxWidth()) {
             // the one-time voice download chooser rides above the input, like the parse chips.
             if (voice != null && showChooser) {
@@ -233,6 +232,69 @@ fun Omnibar(
             }
         }
     }
+}
+
+/**
+ * The bloom, drawn and breathing. Three stacked radial lobes give the warm oxblood-to-garnet glow of
+ * the mockup; a single interpolated `breath` phase drives the whole layer's alpha (and, while
+ * listening, a slight tightening of the radius) so the light is always alive but never busy. Reduced
+ * motion holds it static — the glow stays, the loop stops.
+ */
+@Composable
+private fun Bloom(listening: Boolean, modifier: Modifier = Modifier) {
+    val reduced = rememberReducedMotion()
+    val transition = rememberInfiniteTransition(label = "bloom")
+    val breath by transition.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (listening) Motion.BloomListenMs else Motion.BloomIdleMs,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "breath",
+    )
+    // idle drifts +/-4% around a resting 0.96; listening breathes deeper (+/-8%) and pulls the light in.
+    val phase = if (reduced) 0f else breath
+    val amp = if (listening) 0.08f else 0.04f
+    val layerAlpha = (0.96f + phase * amp).coerceIn(0f, 1f)
+    val tighten = if (listening) 0.06f * ((phase + 1f) / 2f) else 0f
+
+    Spacer(
+        modifier
+            .graphicsLayer { alpha = layerAlpha }
+            .drawBehind {
+                val big = maxOf(size.width, size.height)
+                // the main lobe, low and centred, plus two smaller offset lobes for warmth.
+                drawRect(
+                    brush = Brush.radialGradient(
+                        0.00f to Oxblood.copy(alpha = 0.55f),
+                        0.46f to Oxblood.copy(alpha = 0.18f),
+                        1.00f to Color.Transparent,
+                        center = Offset(size.width * 0.5f, size.height * 0.72f),
+                        radius = (0.72f - tighten) * big,
+                    ),
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        0.00f to Ember.copy(alpha = 0.16f),
+                        1.00f to Color.Transparent,
+                        center = Offset(size.width * 0.30f, size.height * 0.86f),
+                        radius = (0.52f - tighten) * big,
+                    ),
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        0.00f to Oxblood.copy(alpha = 0.20f),
+                        1.00f to Color.Transparent,
+                        center = Offset(size.width * 0.72f, size.height * 0.64f),
+                        radius = (0.46f - tighten) * big,
+                    ),
+                )
+            },
+    )
 }
 
 /**

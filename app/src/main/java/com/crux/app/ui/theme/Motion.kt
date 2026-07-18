@@ -28,6 +28,7 @@ object Motion {
     const val BloomListenMs = 1600    // sanctioned loop 2: breathes with the mic
     const val CascadeStaggerMs = 40   // list first open, max 6 rows, once per session
     const val CascadeMaxRows = 6
+    const val CascadeRowMs = 220      // each cascading row's own drop-and-fade (entry, under the 300 cap)
 
     // Easings. Never ease-in.
     val EaseOut: Easing = CubicBezierEasing(0f, 0f, 0.58f, 1f)

@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -616,7 +617,18 @@ private fun minutesLabel(minutes: Int): String =
 
 @Composable
 private fun SectionLabel(label: String, modifier: Modifier = Modifier) {
-    Text(label.uppercase(), style = CruxType.Eyebrow, color = InkLow, modifier = modifier)
+    // the eyebrow, underlined by the garnet downhill rule (mockup .sgroup .eb), the same motif the
+    // stack group headers carry.
+    Column(modifier) {
+        Text(label.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+        Spacer(Modifier.height(Dimens.Unit * 2))
+        Box(
+            Modifier
+                .width(Dimens.DownhillRuleLength)
+                .height(Dimens.DownhillRuleHeight)
+                .background(Brush.horizontalGradient(listOf(Garnet, Color.Transparent))),
+        )
+    }
     Spacer(Modifier.height(Dimens.Unit * 3))
 }
 

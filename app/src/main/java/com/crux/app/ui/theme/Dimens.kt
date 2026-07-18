@@ -16,6 +16,7 @@ object Dimens {
     val RadiusCard = 19.dp      // cards and inputs
     val RadiusPill = 999.dp     // chips and buttons
     val HairlineWidth = 1.dp    // 1 px hairline, never a drop shadow
+    val RadiusRankChip = 7.dp   // projects rank badge (mockup .rchip): a soft rect, not a pill
     val DownhillRuleHeight = 2.dp   // garnet-to-transparent, under group headers
     val DownhillRuleLength = 72.dp
     val TabBarHeight = 64.dp    // crux-screens-v3.html .tabbar

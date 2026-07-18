@@ -7,6 +7,22 @@ package com.crux.app.ui
  * never invented here.
  */
 object Copy {
+    // titled-tab headers: the mono eyebrow above each Display title (mockup .eb). the sublines
+    // beneath compose live counts inline (mono, the count portion in ember), so they live in-screen.
+    const val STACK_EYEBROW = "every open task"
+    const val PROJECTS_EYEBROW = "rank sets the default"
+    const val REVIEW_EYEBROW = "on your terms · never mid-capture"
+    const val OVERDUE_EYEBROW = "the pile"
+
+    // projects: the blush hint card under the list (mockup .hintcard). ranks read as "R1"-style
+    // labels (matching the rank chips), highlighted where the rule is stated.
+    const val PROJECTS_HINT_PREFIX = "re-rank in edit. unstated priorities inherit their project's weight: "
+    const val PROJECTS_HINT_RULE = "R1 > R2 > R3"
+    const val PROJECTS_HINT_SUFFIX = ", then task priority, then due date."
+
+    // review card eyebrows (mockup .peb): the kind of proposal + its project.
+    const val REVIEW_CARD_AI_FILED = "ai filed"
+
     // navigation labels (the four tabs, per user-choices.md)
     const val TAB_HOME = "home"
     const val TAB_STACK = "stack"

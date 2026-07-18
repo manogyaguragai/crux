@@ -1,6 +1,7 @@
 package com.crux.app.ui.screens.review
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +35,9 @@ import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Garnet
+import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
@@ -64,7 +67,15 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Box(Modifier.fillMaxWidth().height(Dimens.ScreenMargin))
-        TabHeader(title = Copy.REVIEW_TITLE, onOpenSettings = onOpenSettings)
+        val waiting = nudges.size + proposals.size
+        TabHeader(
+            title = Copy.REVIEW_TITLE,
+            onOpenSettings = onOpenSettings,
+            eyebrow = Copy.REVIEW_EYEBROW,
+            subline = waiting.takeIf { it > 0 }?.let {
+                { Text("$it to review", style = CruxType.Data, color = Ember) }
+            },
+        )
         Spacer(Modifier.height(Dimens.GroupGap))
 
         val hasNudges = nudges.isNotEmpty()
@@ -148,8 +159,11 @@ private fun NudgeCard(nudge: PriorityNudge, onBump: () -> Unit, onSkip: () -> Un
             .fillMaxWidth()
             .clip(RoundedCornerShape(Dimens.RadiusCard))
             .background(Surface)
+            .border(Dimens.HairlineWidth, Hairline, RoundedCornerShape(Dimens.RadiusCard))
             .padding(Dimens.Unit * 4),
     ) {
+        Text(Copy.REVIEW_SECTION_PRIORITY.uppercase(), style = CruxType.Eyebrow, color = InkLow)
+        Spacer(Modifier.height(Dimens.Unit * 2))
         Text(nudge.task.title, style = CruxType.Body, color = InkHi)
         Spacer(Modifier.height(Dimens.Unit * 2))
         Text(nudge.reason, style = CruxType.Secondary, color = InkMid)
@@ -169,8 +183,15 @@ private fun ProposalCard(proposal: ReviewProposal, onFile: () -> Unit, onDismiss
             .fillMaxWidth()
             .clip(RoundedCornerShape(Dimens.RadiusCard))
             .background(Surface)
+            .border(Dimens.HairlineWidth, Hairline, RoundedCornerShape(Dimens.RadiusCard))
             .padding(Dimens.Unit * 4),
     ) {
+        Text(
+            "${Copy.REVIEW_CARD_AI_FILED} · # ${proposal.projectName}".uppercase(),
+            style = CruxType.Eyebrow,
+            color = InkLow,
+        )
+        Spacer(Modifier.height(Dimens.Unit * 2))
         Text(proposal.task.title, style = CruxType.Body, color = InkHi)
         Spacer(Modifier.height(Dimens.Unit * 2))
         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -3,6 +3,7 @@ package com.crux.app.ui.screens.projects
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -36,8 +37,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -47,9 +52,13 @@ import com.crux.app.ui.Copy
 import com.crux.app.ui.ProjectsViewModel
 import com.crux.app.ui.components.CruxIcons
 import com.crux.app.ui.components.TabHeader
+import com.crux.app.ui.theme.Blush
+import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Garnet
+import com.crux.app.ui.theme.HairlineStrong
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
@@ -85,22 +94,30 @@ fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Spacer(Modifier.height(Dimens.ScreenMargin))
-        TabHeader(title = Copy.TAB_PROJECTS, onOpenSettings = onOpenSettings) {
-            if (projects.isNotEmpty()) {
-                val interaction = remember { MutableInteractionSource() }
-                Text(
-                    text = if (editing) Copy.PROJECTS_DONE else Copy.PROJECTS_EDIT,
-                    style = CruxType.Action,
-                    color = if (editing) Garnet else InkMid,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Dimens.RadiusPill))
-                        .clickable(interactionSource = interaction, indication = null) {
-                            editing = !editing
-                        }
-                        .padding(horizontal = Dimens.Unit * 2, vertical = Dimens.Unit),
-                )
-            }
-        }
+        TabHeader(
+            title = Copy.TAB_PROJECTS,
+            onOpenSettings = onOpenSettings,
+            eyebrow = Copy.PROJECTS_EYEBROW,
+            subline = if (projects.isEmpty()) null else {
+                { Text("${projects.size} stones", style = CruxType.Data, color = InkLow) }
+            },
+            trailing = {
+                if (projects.isNotEmpty()) {
+                    val interaction = remember { MutableInteractionSource() }
+                    Text(
+                        text = if (editing) Copy.PROJECTS_DONE else Copy.PROJECTS_EDIT,
+                        style = CruxType.Action,
+                        color = if (editing) Garnet else InkMid,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Dimens.RadiusPill))
+                            .clickable(interactionSource = interaction, indication = null) {
+                                editing = !editing
+                            }
+                            .padding(horizontal = Dimens.Unit * 2, vertical = Dimens.Unit),
+                    )
+                }
+            },
+        )
         Spacer(Modifier.height(Dimens.Unit * 3))
 
         if (projects.isEmpty()) {
@@ -135,6 +152,13 @@ fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
                     )
                 }
             }
+        }
+
+        // the rule that ranking encodes, stated once (mockup .hintcard). only when there is a stack
+        // to rank; the up/down edit controls stand in for the mockup's drag.
+        if (projects.isNotEmpty()) {
+            ProjectsHint()
+            Spacer(Modifier.height(Dimens.Unit * 3))
         }
 
         // the create field rides at the bottom for thumb reach, mirroring the home omnibar; the
@@ -215,13 +239,9 @@ private fun ProjectRow(
             .heightIn(min = Dimens.RowMinHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // positional rank, numbers-first (Chisel voice). Shows order, not the raw stored rank.
-        Text(
-            text = position.toString(),
-            style = CruxType.Data,
-            color = InkLow,
-            modifier = Modifier.width(24.dp),
-        )
+        // the rank chip (mockup .rchip): R1 the only filled chip, R2 an ember outline, R3+ a hairline
+        // outline. Shows the live order, not the raw stored rank.
+        RankChip(position)
         Spacer(Modifier.width(Dimens.Unit * 2))
 
         if (editing) {
@@ -254,6 +274,57 @@ private fun ProjectRow(
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+/**
+ * The rank chip (mockup .rchip): a soft rounded rect, not a pill. R1 is the only filled chip in the
+ * app (garnet + cream); R2 wears an ember outline; R3 and below a plain hairline outline.
+ */
+@Composable
+private fun RankChip(rank: Int) {
+    val shape = RoundedCornerShape(Dimens.RadiusRankChip)
+    val fill = if (rank == 1) Garnet else Color.Transparent
+    val outline = when (rank) {
+        1 -> Garnet
+        2 -> Ember
+        else -> HairlineStrong
+    }
+    val ink = when (rank) {
+        1 -> Cream
+        2 -> Ember
+        else -> InkMid
+    }
+    Box(
+        Modifier
+            .clip(shape)
+            .background(fill)
+            .border(Dimens.HairlineWidth, outline, shape)
+            .padding(horizontal = Dimens.Unit * 2, vertical = Dimens.Unit),
+    ) {
+        Text("R$rank", style = CruxType.Data, color = ink)
+    }
+}
+
+/** The blush hint card (mockup .hintcard): the ranking rule, stated once, its rule span in ember. */
+@Composable
+private fun ProjectsHint() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.RadiusCard))
+            .background(Blush)
+            .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 3),
+    ) {
+        Text(
+            text = buildAnnotatedString {
+                append(Copy.PROJECTS_HINT_PREFIX)
+                withStyle(SpanStyle(color = Ember)) { append(Copy.PROJECTS_HINT_RULE) }
+                append(Copy.PROJECTS_HINT_SUFFIX)
+            },
+            style = CruxType.Secondary,
+            color = InkMid,
+        )
     }
 }
 

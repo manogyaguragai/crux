@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -22,10 +23,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,13 +68,20 @@ import com.crux.app.ui.components.SettingsGear
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
-import com.crux.app.ui.theme.Ember
+import com.crux.app.ui.theme.HairlineStrong
 import com.crux.app.ui.theme.InkHi
+import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.LocalVoid
 import com.crux.app.ui.theme.Motion
+import com.crux.app.ui.theme.Overdue
 import com.crux.app.ui.theme.Raised
+import com.crux.app.ui.theme.SessionMotion
+import com.crux.app.ui.theme.cascadeIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -102,6 +112,12 @@ fun HomeScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val imeVisible = WindowInsets.isImeVisible
+    // the top-3 cascade downhill on the first home open of the session (once per session, per list).
+    val cascade = remember { SessionMotion.claim("home-top3") }
+    val todayLabel = remember {
+        LocalDate.now().format(DateTimeFormatter.ofPattern("EEE · MMM d", Locale.ENGLISH))
+            .lowercase(Locale.ENGLISH)
+    }
 
     // The "skyrocket into the queue" animation: on submit, a chip of the line flies from the omnibar up
     // to the queue icon along a gentle arc, shrinking + fading, then the icon pops. Positions are in
@@ -168,26 +184,23 @@ fun HomeScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.height(Dimens.ScreenMargin))
-            // top strip: the overdue nudge count on the left (live count -> ember), settings gear right.
+            // top strip: the day's date as a quiet mono eyebrow on the left; on the right the overdue
+            // nudge (a bordered pill carrying the one red dot), then the queue / ai / settings icons.
             Box(Modifier.fillMaxWidth()) {
-                if (overdue > 0) {
-                    // tap the nudge to open the overdue pile (the screen behind it).
-                    val nudgeInteraction = remember { MutableInteractionSource() }
-                    Text(
-                        text = "$overdue overdue",
-                        style = CruxType.Data,
-                        color = Ember,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .clip(RoundedCornerShape(Dimens.RadiusPill))
-                            .clickable(interactionSource = nudgeInteraction, indication = null) { onOpenOverdue() }
-                            .padding(vertical = Dimens.Unit, horizontal = Dimens.Unit),
-                    )
-                }
+                Text(
+                    text = todayLabel,
+                    style = CruxType.Eyebrow,
+                    color = InkLow,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
                 Row(
                     modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (overdue > 0) {
+                        NudgePill(count = overdue, onClick = onOpenOverdue)
+                        Spacer(Modifier.width(Dimens.Unit * 2))
+                    }
                     Box(
                         Modifier
                             .onGloballyPositioned { queueIconCenter = it.boundsInRoot().center }
@@ -218,19 +231,30 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.Bottom,
                         contentPadding = PaddingValues(bottom = omnibarInsetDp),
                     ) {
-                        items(items = tasks, key = { it.id }) { task ->
+                        // the label rides just above the low list (mockup "top of the stack").
+                        item(key = "top3-eyebrow") {
+                            Text(
+                                text = "top of the stack",
+                                style = CruxType.Eyebrow,
+                                color = InkLow,
+                                modifier = Modifier.padding(bottom = Dimens.Unit * 2),
+                            )
+                        }
+                        itemsIndexed(items = tasks, key = { _, t -> t.id }) { index, task ->
                             TaskRow(
                                 task = task,
                                 completing = task.id in completing,
                                 onToggle = { vm.complete(task) },
                                 onOpen = { onOpenTask(task.id) },
-                                modifier = Modifier.animateItem(
-                                    fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
-                                    placementSpec = spring(
-                                        dampingRatio = Motion.ReorderDamping,
-                                        visibilityThreshold = IntOffset.VisibilityThreshold,
-                                    ),
-                                ),
+                                modifier = Modifier
+                                    .animateItem(
+                                        fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
+                                        placementSpec = spring(
+                                            dampingRatio = Motion.ReorderDamping,
+                                            visibilityThreshold = IntOffset.VisibilityThreshold,
+                                        ),
+                                    )
+                                    .cascadeIn(index, cascade),
                             )
                         }
                     }
@@ -281,6 +305,27 @@ fun HomeScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * The overdue nudge: a bordered pill carrying the one red dot and the waiting count, in the quietest
+ * possible voice (mockup .nudge). Tapping it opens the overdue pile behind it.
+ */
+@Composable
+private fun NudgePill(count: Int, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .border(Dimens.HairlineWidth, HairlineStrong, RoundedCornerShape(Dimens.RadiusPill))
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dimens.Unit * 2, vertical = Dimens.Unit),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(Dimens.Unit).clip(CircleShape).background(Overdue))
+        Spacer(Modifier.width(Dimens.Unit * 1.5f))
+        Text(text = "$count waiting", style = CruxType.Data, color = InkMid)
     }
 }
 
