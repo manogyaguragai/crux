@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TasksViewModel
+import com.crux.app.ui.components.AiStatusIcon
 import com.crux.app.ui.components.Omnibar
 import com.crux.app.ui.components.SettingsGear
 import com.crux.app.ui.components.TaskRow
@@ -142,7 +145,14 @@ fun HomeScreen(
                             .padding(vertical = Dimens.Unit, horizontal = Dimens.Unit),
                     )
                 }
-                SettingsGear(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterEnd))
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AiStatusIcon()
+                    Spacer(Modifier.width(Dimens.Unit * 2))
+                    SettingsGear(onClick = onOpenSettings)
+                }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (tasks.isEmpty()) {

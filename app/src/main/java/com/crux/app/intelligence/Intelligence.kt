@@ -5,11 +5,19 @@ import com.crux.app.data.SecureKeyStore
 import com.crux.app.data.SettingsRepository
 import com.crux.app.domain.model.Task
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicInteger
 
 /** One project guess for an unfiled task (review tab): which project, and a one-line why. */
 data class ProjectSuggestion(val taskId: Long, val projectName: String, val reason: String)
@@ -39,6 +47,26 @@ class Intelligence(
     private val client: LlmClient,
 ) {
 
+    // --- ambient status, read by the AI icon in every header ---
+
+    /** True while at least one LLM call is in flight (drives the icon's breathing glow). */
+    private val inFlight = AtomicInteger(0)
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    /** Whether AI is on AND keyed. Off → the icon shows slashed/grey and nothing calls out. */
+    val active: Flow<Boolean> =
+        combine(settings.aiEnabled, settings.aiProvider) { enabled, provider ->
+            enabled && provider != null && withContext(Dispatchers.IO) { keys.hasKey(provider.id) }
+        }
+
+    /** One-shot failure signals (quota, rate limit, network, …) the icon turns into a message. */
+    private val _notices = MutableSharedFlow<AiErrorKind>(extraBufferCapacity = 8)
+    val notices: SharedFlow<AiErrorKind> = _notices
+
+    private fun enter() { inFlight.incrementAndGet(); _busy.value = true }
+    private fun exit() { if (inFlight.decrementAndGet() <= 0) _busy.value = false }
+
     /** The active provider — on, chosen, and keyed — or null if the LLM step should be skipped. */
     suspend fun activeProvider(): LlmProvider? {
         if (!settings.aiEnabled.first()) return null
@@ -66,19 +94,29 @@ class Intelligence(
             return LlmOutcome.Inactive
         }
         if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) {
-            Log.w(TAG, "interpret: daily budget spent"); return LlmOutcome.Unavailable
+            Log.w(TAG, "interpret: daily budget spent")
+            _notices.tryEmit(AiErrorKind.RATE_LIMIT)
+            return LlmOutcome.Unavailable
         }
         val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return LlmOutcome.Inactive
         val messages = LlmPrompt.captureMessages(input, today, zone, projects)
         settings.recordAiCall(today) // count the send: quota is consumed whether or not the reply parses
-        val raw = client.chat(provider, key, messages)
-        if (raw == null) {
-            Log.w(TAG, "interpret: provider ${provider.id} returned nothing for \"$input\"")
-            return LlmOutcome.Unavailable
+        enter()
+        val result = try { client.chat(provider, key, messages) } finally { exit() }
+        return when (result) {
+            is ChatResult.Failed -> {
+                _notices.tryEmit(result.kind)
+                LlmOutcome.Unavailable
+            }
+            is ChatResult.Ok -> {
+                val action = parseLlmAction(result.content)
+                Log.i(TAG, "interpret: \"$input\" -> raw=${result.content.take(300)} parsed=${action?.javaClass?.simpleName}")
+                if (action != null) LlmOutcome.Acted(action) else {
+                    _notices.tryEmit(AiErrorKind.FAILED) // a 200 we could not read is still a fallback
+                    LlmOutcome.Unavailable
+                }
+            }
         }
-        val action = parseLlmAction(raw)
-        Log.i(TAG, "interpret: \"$input\" -> raw=${raw.take(300)} parsed=${action?.javaClass?.simpleName}")
-        return if (action != null) LlmOutcome.Acted(action) else LlmOutcome.Unavailable
     }
 
     /**
@@ -97,8 +135,15 @@ class Intelligence(
         val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return null
         val messages = LlmPrompt.suggestMessages(inbox.map { InboxTask(it.id, it.title) }, projects, today)
         settings.recordAiCall(today)
-        val raw = client.chat(provider, key, messages) ?: return null
-        return parseSuggestions(raw, inbox.map { it.id }.toSet(), projects.map { it.name }.toSet())
+        enter()
+        val result = try { client.chat(provider, key, messages) } finally { exit() }
+        return when (result) {
+            is ChatResult.Failed -> {
+                _notices.tryEmit(result.kind)
+                null
+            }
+            is ChatResult.Ok -> parseSuggestions(result.content, inbox.map { it.id }.toSet(), projects.map { it.name }.toSet())
+        }
     }
 
     private companion object { const val TAG = "CruxAI" }

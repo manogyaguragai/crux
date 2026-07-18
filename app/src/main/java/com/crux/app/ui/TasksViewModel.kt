@@ -160,11 +160,9 @@ class TasksViewModel(
                     is LlmAction.Query -> handleQuery(action.question, zone)
                     is LlmAction.Add -> addTask(text, rules, action, now, zone)
                 }
-                LlmOutcome.Unavailable -> {
-                    addTask(text, rules, null, now, zone)
-                    commandChannel.send(CommandOutcome.Message(Copy.AI_OFFLINE))
-                }
-                LlmOutcome.Inactive -> addTask(text, rules, null, now, zone)
+                // Unavailable (call failed) and Inactive (AI off) both just file on rules. The AI status
+                // icon shows the "why" for Unavailable via its own notice, so no snackbar here.
+                LlmOutcome.Unavailable, LlmOutcome.Inactive -> addTask(text, rules, null, now, zone)
             }
         }
     }

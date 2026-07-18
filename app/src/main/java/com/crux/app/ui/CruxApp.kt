@@ -1,5 +1,10 @@
 package com.crux.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,10 +42,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.crux.app.ui.components.LocalAiPresence
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,6 +119,12 @@ fun CruxApp() {
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val reviewVm: ReviewViewModel = viewModel(factory = ReviewViewModel.factory(container))
+    val aiStatusVm: AiStatusViewModel = viewModel(factory = AiStatusViewModel.factory(container))
+    val aiPresence by aiStatusVm.presence.collectAsStateWithLifecycle()
+    val aiNotice by aiStatusVm.notice.collectAsStateWithLifecycle()
+    // hold the last message so it stays legible through the bubble's exit animation
+    var lastNotice by remember { mutableStateOf("") }
+    LaunchedEffect(aiNotice) { aiNotice?.let { lastNotice = it } }
     val snackbarHostState = remember { SnackbarHostState() }
     // A pending AI command awaiting the user: a disambiguation pick or a destructive confirm. Plain
     // messages (query answers, "not found") go straight to the snackbar instead.
@@ -143,6 +158,7 @@ fun CruxApp() {
         }
     }
 
+    CompositionLocalProvider(LocalAiPresence provides aiPresence) {
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             // imePadding lifts the whole shell (tab bar + the omnibar riding above it) above the
@@ -204,6 +220,28 @@ fun CruxApp() {
         pendingCommand?.let { outcome ->
             CommandSheet(outcome = outcome, vm = vm, onDismiss = { pendingCommand = null })
         }
+        // an AI notice (quota, rate limit, offline…) breathes out from the status icon, top-right
+        AnimatedVisibility(
+            visible = aiNotice != null,
+            enter = fadeIn() + scaleIn(initialScale = 0.85f),
+            exit = fadeOut() + scaleOut(targetScale = 0.85f),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 52.dp, end = Dimens.ScreenMargin),
+        ) {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(Dimens.RadiusCard))
+                    .background(Overlay)
+                    .padding(horizontal = Dimens.Unit * 3, vertical = Dimens.Unit * 2),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(6.dp).clip(CircleShape).background(Ember))
+                Spacer(Modifier.width(Dimens.Unit * 2))
+                Text(lastNotice, style = CruxType.Secondary, color = InkHi)
+            }
+        }
         // the undo snackbar rides at the top so it never blocks the omnibar or capture
         SnackbarHost(
             hostState = snackbarHostState,
@@ -221,6 +259,7 @@ fun CruxApp() {
             )
         }
     }
+    } // CompositionLocalProvider(LocalAiPresence)
 }
 
 @Composable

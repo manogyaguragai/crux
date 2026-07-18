@@ -107,6 +107,12 @@ object Copy {
     const val AI_RESCHEDULE_TITLE = "move this task"
     const val AI_RESCHEDULE_APPLY = "move it"
     const val AI_OFFLINE = "offline. parsing by rules."
+    // AI status-icon notices, per error kind (chisel voice). the icon breathes them out on failure.
+    const val AI_NOTICE_QUOTA = "no api quota. parsing by rules."
+    const val AI_NOTICE_RATE = "rate limited. parsing by rules."
+    const val AI_NOTICE_NETWORK = "offline. parsing by rules."
+    const val AI_NOTICE_AUTH = "key rejected. check settings."
+    const val AI_NOTICE_FAILED = "ai unavailable. parsing by rules."
     const val REVIEW_TITLE = "review"
     const val REVIEW_AI_OFF = "turn on ai assist in settings to get suggestions."
     const val REVIEW_SCAN = "sort the inbox"
