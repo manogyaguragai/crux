@@ -24,8 +24,8 @@ object Motion {
     const val VanishMs = 300          // a completed row fades out as it leaves a list (home top-3, sweep)
     const val OmnibarToggleMs = 160   // add <-> search dash slide
     const val DetailOpenMs = 240      // shared-element rise from the row
-    const val BloomIdleMs = 6000      // sanctioned loop 1: alpha drifts +/-4%
-    const val BloomListenMs = 1600    // sanctioned loop 2: breathes with the mic
+    const val BloomIdleMs = 5000      // sanctioned loop 1: full breath period (a smooth cosine swell)
+    const val BloomListenMs = 1800    // sanctioned loop 2: full breath period while listening (quicker)
     const val CascadeStaggerMs = 40   // list first open, max 6 rows, once per session
     const val CascadeMaxRows = 6
     const val CascadeRowMs = 220      // each cascading row's own drop-and-fade (entry, under the 300 cap)

@@ -120,7 +120,6 @@ fun TaskRow(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight()
                 .then(
                     if (onOpen != null) {
                         Modifier.clickable(

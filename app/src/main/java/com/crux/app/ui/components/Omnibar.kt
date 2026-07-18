@@ -40,8 +40,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -235,63 +238,29 @@ fun Omnibar(
 }
 
 /**
- * The bloom, drawn and breathing. Three stacked radial lobes give the warm oxblood-to-garnet glow of
- * the mockup; a single interpolated `breath` phase drives the whole layer's alpha (and, while
- * listening, a slight tightening of the radius) so the light is always alive but never busy. Reduced
- * motion holds it static — the glow stays, the loop stops.
+ * The bloom: a soft, wide, STATIC radiance behind the omnibar — like Gemini's search glow and the
+ * mockup .bloom. Garnet at the core (garnet reads as light on near-black; oxblood alone does not),
+ * fading gently and widely to nothing. Each lobe is drawn into a square that fully CONTAINS its
+ * circle, so the gradient always fades to transparent before any edge — no hard rectangle, no flicker.
+ * (No animation: the breathing loop read as a light-bulb flick on device, so the owner chose static.)
  */
 @Composable
 private fun Bloom(listening: Boolean, modifier: Modifier = Modifier) {
-    val reduced = rememberReducedMotion()
-    val transition = rememberInfiniteTransition(label = "bloom")
-    val breath by transition.animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (listening) Motion.BloomListenMs else Motion.BloomIdleMs,
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "breath",
-    )
-    // idle drifts +/-4% around a resting 0.96; listening breathes deeper (+/-8%) and pulls the light in.
-    val phase = if (reduced) 0f else breath
-    val amp = if (listening) 0.08f else 0.04f
-    val layerAlpha = (0.96f + phase * amp).coerceIn(0f, 1f)
-    val tighten = if (listening) 0.06f * ((phase + 1f) / 2f) else 0f
-
+    // A soft glow in the omnibar's OWN rounded-rect shape: draw the pill in garnet, then blur it wide
+    // so it becomes a smooth pill-shaped halo — no banding, no hard edge. The real pill sits on top,
+    // so only the blurred surround shows. Blur needs API 31+; below that it degrades to no glow (the
+    // garnet pill is fully hidden behind the real one) rather than a hard rectangle.
     Spacer(
         modifier
-            .graphicsLayer { alpha = layerAlpha }
+            .blur(54.dp, BlurredEdgeTreatment.Unbounded)
             .drawBehind {
-                val big = maxOf(size.width, size.height)
-                // the main lobe, low and centred, plus two smaller offset lobes for warmth.
-                drawRect(
-                    brush = Brush.radialGradient(
-                        0.00f to Oxblood.copy(alpha = 0.55f),
-                        0.46f to Oxblood.copy(alpha = 0.18f),
-                        1.00f to Color.Transparent,
-                        center = Offset(size.width * 0.5f, size.height * 0.72f),
-                        radius = (0.72f - tighten) * big,
-                    ),
-                )
-                drawRect(
-                    brush = Brush.radialGradient(
-                        0.00f to Ember.copy(alpha = 0.16f),
-                        1.00f to Color.Transparent,
-                        center = Offset(size.width * 0.30f, size.height * 0.86f),
-                        radius = (0.52f - tighten) * big,
-                    ),
-                )
-                drawRect(
-                    brush = Brush.radialGradient(
-                        0.00f to Oxblood.copy(alpha = 0.20f),
-                        1.00f to Color.Transparent,
-                        center = Offset(size.width * 0.72f, size.height * 0.64f),
-                        radius = (0.46f - tighten) * big,
-                    ),
+                // draw the pill a touch larger than the real one so the halo sits a little proud of it
+                val g = 6.dp.toPx()
+                drawRoundRect(
+                    color = Garnet.copy(alpha = 0.62f),
+                    topLeft = Offset(-g, -g),
+                    size = Size(size.width + 2f * g, size.height + 2f * g),
+                    cornerRadius = CornerRadius(Dimens.RadiusShell.toPx() + g),
                 )
             },
     )

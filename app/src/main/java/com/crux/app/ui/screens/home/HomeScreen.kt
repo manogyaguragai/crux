@@ -86,15 +86,10 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Home: the omnibar riding low, the open tasks above it (data-model.md). How many rows show is the
- * owner's setting (1..10, default 3); the list scrolls when it overflows.
- *
- * The omnibar is docked over the bottom of the list, not in the column flow, so it can slide away.
- * Scrolling down toward more tasks tucks it out of sight; scrolling back up pulls it home. The slide
- * is a single interruptible spring animating from the omnibar's live on-screen position (never from
- * the target), so a reversal mid-slide follows the finger instead of snapping — critically damped,
- * no overshoot, per the motion law. It is forced back the instant the keyboard opens (you are about
- * to type) or the list returns to the top, so capture is never a scroll away.
+ * Home, the hearth (mockup 01): the top-3 ride high right under the date, then the omnibar floats a
+ * bit below centre — capture is the hero — seated between two breathing spacers (mockup flex 1.1 :
+ * .9) with the bloom glowing into the open space around it. How many rows show is the owner's setting
+ * (1..10, default 3).
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -109,9 +104,6 @@ fun HomeScreen(
     val overdue by vm.overdueCount.collectAsStateWithLifecycle()
     val knownProjects by vm.knownProjects.collectAsStateWithLifecycle()
 
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val imeVisible = WindowInsets.isImeVisible
     // the top-3 cascade downhill on the first home open of the session (once per session, per list).
     val cascade = remember { SessionMotion.claim("home-top3") }
     val todayLabel = remember {
@@ -142,44 +134,12 @@ fun HomeScreen(
         }
     }
 
-    // The omnibar's full docked height (shell + its chips + the bottom gap), measured live so the
-    // slide distance and the list's bottom inset always match the real thing.
-    var omnibarHeightPx by remember { mutableIntStateOf(0) }
-
-    // Direction intent: a downward drag toward more content hides; an upward drag reveals.
-    var revealed by remember { mutableStateOf(true) }
-    val atTop by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
-    }
-    val scrollWatcher = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val dy = available.y
-                if (dy < -SCROLL_INTENT_PX) revealed = false   // finger up, reading downward -> hide
-                else if (dy > SCROLL_INTENT_PX) revealed = true // finger down, heading back up -> reveal
-                return Offset.Zero
-            }
-        }
-    }
-
-    val show = revealed || imeVisible || atTop
-    val hideTarget = if (show) 0f else omnibarHeightPx.toFloat()
-    val hideOffset by animateFloatAsState(
-        targetValue = hideTarget,
-        // critically damped (no overshoot), response ~0.4s: chrome should settle, not bounce.
-        animationSpec = spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
-        label = "omnibarHide",
-    )
-
-    val omnibarInsetDp = with(density) { omnibarHeightPx.toDp() }
-
     Box(
         Modifier
             .fillMaxSize()
             .onGloballyPositioned { rootOffset = it.positionInRoot() }
             .background(LocalVoid.current)
             .clipToBounds()
-            .nestedScroll(scrollWatcher)
             .padding(horizontal = Dimens.ScreenMargin),
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -212,67 +172,50 @@ fun HomeScreen(
                     SettingsGear(onClick = onOpenSettings)
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (tasks.isEmpty()) {
-                    Text(
-                        text = Copy.EMPTY_HOME,
-                        style = CruxType.Passage,
-                        color = InkMid,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.Center),
+            // the stack rides high, right under the date. capture is the hero: the omnibar floats a
+            // bit below centre, seated between the two breathing spacers below, the bloom glowing into
+            // the open space around it.
+            if (tasks.isEmpty()) {
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = Copy.EMPTY_HOME,
+                    style = CruxType.Passage,
+                    color = InkMid,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Spacer(Modifier.height(Dimens.GroupGap))
+                Text(
+                    text = "top of the stack",
+                    style = CruxType.Eyebrow,
+                    color = InkLow,
+                    modifier = Modifier.padding(bottom = Dimens.Unit * 2),
+                )
+                tasks.forEachIndexed { index, task ->
+                    TaskRow(
+                        task = task,
+                        completing = task.id in completing,
+                        onToggle = { vm.complete(task) },
+                        onOpen = { onOpenTask(task.id) },
+                        modifier = Modifier.cascadeIn(index, cascade),
                     )
-                } else {
-                    // Bottom arrangement keeps a short list riding low above the omnibar (the shipped
-                    // feel); a long list simply scrolls. The bottom inset clears the docked omnibar so
-                    // the last row is never hidden behind it, and a completed row fades as it leaves.
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Bottom,
-                        contentPadding = PaddingValues(bottom = omnibarInsetDp),
-                    ) {
-                        // the label rides just above the low list (mockup "top of the stack").
-                        item(key = "top3-eyebrow") {
-                            Text(
-                                text = "top of the stack",
-                                style = CruxType.Eyebrow,
-                                color = InkLow,
-                                modifier = Modifier.padding(bottom = Dimens.Unit * 2),
-                            )
-                        }
-                        itemsIndexed(items = tasks, key = { _, t -> t.id }) { index, task ->
-                            TaskRow(
-                                task = task,
-                                completing = task.id in completing,
-                                onToggle = { vm.complete(task) },
-                                onOpen = { onOpenTask(task.id) },
-                                modifier = Modifier
-                                    .animateItem(
-                                        fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
-                                        placementSpec = spring(
-                                            dampingRatio = Motion.ReorderDamping,
-                                            visibilityThreshold = IntOffset.VisibilityThreshold,
-                                        ),
-                                    )
-                                    .cascadeIn(index, cascade),
-                            )
-                        }
-                    }
                 }
             }
+
+            // flex 1.1 : .9 (mockup) seats the omnibar just below centre; the top gap is the larger.
+            Spacer(Modifier.weight(1.1f))
+            Omnibar(
+                projects = knownProjects,
+                onCapture = { text, dismissed, source -> vm.capture(text, dismissed, source); launchFly(text) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned {
+                        omnibarAnchor = it.boundsInRoot().let { r -> Offset(r.center.x, r.top) }
+                    },
+            )
+            Spacer(Modifier.weight(0.9f))
         }
-        // the omnibar, docked over the bottom; slides away on downward scroll, springs back on up.
-        Omnibar(
-            projects = knownProjects,
-            onCapture = { text, dismissed, source -> vm.capture(text, dismissed, source); launchFly(text) },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .onGloballyPositioned { omnibarAnchor = it.boundsInRoot().let { r -> Offset(r.center.x, r.top) } }
-                .onSizeChanged { omnibarHeightPx = it.height }
-                .graphicsLayer { translationY = hideOffset }
-                .padding(bottom = Dimens.GroupGap),
-        )
 
         // the flying chips: each animates from the omnibar up into the queue icon
         flyers.forEach { flyer ->
