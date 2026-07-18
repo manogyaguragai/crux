@@ -52,6 +52,7 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
     val proposals by vm.proposals.collectAsStateWithLifecycle()
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val scanned by vm.scanned.collectAsStateWithLifecycle()
+    val scanFailed by vm.scanFailed.collectAsStateWithLifecycle()
     val inboxCount by vm.inboxCount.collectAsStateWithLifecycle()
 
     Column(
@@ -76,6 +77,7 @@ fun ReviewScreen(vm: ReviewViewModel, onOpenSettings: () -> Unit) {
                 Spacer(Modifier.height(Dimens.GroupGap))
                 when {
                     scanning -> Centered(Copy.REVIEW_SCANNING)
+                    scanFailed -> Centered(Copy.AI_OFFLINE)
                     proposals.isNotEmpty() -> LazyColumn(
                         Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(Dimens.Unit * 3),

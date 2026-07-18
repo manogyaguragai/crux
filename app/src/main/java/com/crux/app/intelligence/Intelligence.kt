@@ -1,5 +1,6 @@
 package com.crux.app.intelligence
 
+import android.util.Log
 import com.crux.app.data.SecureKeyStore
 import com.crux.app.data.SettingsRepository
 import com.crux.app.domain.model.Task
@@ -12,6 +13,18 @@ import java.time.ZoneId
 
 /** One project guess for an unfiled task (review tab): which project, and a one-line why. */
 data class ProjectSuggestion(val taskId: Long, val projectName: String, val reason: String)
+
+/**
+ * What the LLM step produced for one line. [Inactive] means AI is off/unkeyed, so the caller proceeds
+ * on rules silently (nothing changed for the user). [Unavailable] means AI *was* meant to run but the
+ * call failed — bad quota, network, or an unparseable reply — so the caller should proceed on rules AND
+ * tell the user it fell back, rather than leaving them wondering why a command did nothing.
+ */
+sealed interface LlmOutcome {
+    data object Inactive : LlmOutcome
+    data object Unavailable : LlmOutcome
+    data class Acted(val action: LlmAction) : LlmOutcome
+}
 
 /**
  * The intelligence chain (intelligence.md, phase 3). Rules always run first and elsewhere; this class
@@ -46,14 +59,26 @@ class Intelligence(
         today: LocalDate,
         zone: ZoneId,
         projects: List<KnownProject>,
-    ): LlmAction? {
-        val provider = activeProvider() ?: return null
-        if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) return null
-        val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return null
+    ): LlmOutcome {
+        val provider = activeProvider()
+        if (provider == null) {
+            Log.i(TAG, "interpret: inactive (AI off / no provider / no key)")
+            return LlmOutcome.Inactive
+        }
+        if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) {
+            Log.w(TAG, "interpret: daily budget spent"); return LlmOutcome.Unavailable
+        }
+        val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return LlmOutcome.Inactive
         val messages = LlmPrompt.captureMessages(input, today, zone, projects)
         settings.recordAiCall(today) // count the send: quota is consumed whether or not the reply parses
-        val raw = client.chat(provider, key, messages) ?: return null
-        return parseLlmAction(raw)
+        val raw = client.chat(provider, key, messages)
+        if (raw == null) {
+            Log.w(TAG, "interpret: provider ${provider.id} returned nothing for \"$input\"")
+            return LlmOutcome.Unavailable
+        }
+        val action = parseLlmAction(raw)
+        Log.i(TAG, "interpret: \"$input\" -> raw=${raw.take(300)} parsed=${action?.javaClass?.simpleName}")
+        return if (action != null) LlmOutcome.Acted(action) else LlmOutcome.Unavailable
     }
 
     /**
@@ -65,16 +90,18 @@ class Intelligence(
         inbox: List<Task>,
         projects: List<KnownProject>,
         today: LocalDate,
-    ): List<ProjectSuggestion> {
+    ): List<ProjectSuggestion>? { // null = the call could not run (off/quota/network); empty = ran, nothing to suggest
         if (inbox.isEmpty() || projects.isEmpty()) return emptyList()
-        val provider = activeProvider() ?: return emptyList()
-        if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) return emptyList()
-        val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return emptyList()
+        val provider = activeProvider() ?: return null
+        if (settings.aiCallsToday(today) >= SettingsRepository.AI_DAILY_CAP) return null
+        val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return null
         val messages = LlmPrompt.suggestMessages(inbox.map { InboxTask(it.id, it.title) }, projects, today)
         settings.recordAiCall(today)
-        val raw = client.chat(provider, key, messages) ?: return emptyList()
+        val raw = client.chat(provider, key, messages) ?: return null
         return parseSuggestions(raw, inbox.map { it.id }.toSet(), projects.map { it.name }.toSet())
     }
+
+    private companion object { const val TAG = "CruxAI" }
 
     private fun parseSuggestions(raw: String, validIds: Set<Long>, validProjects: Set<String>): List<ProjectSuggestion> {
         val start = raw.indexOf('{')

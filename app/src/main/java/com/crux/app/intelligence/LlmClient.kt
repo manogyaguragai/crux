@@ -1,5 +1,6 @@
 package com.crux.app.intelligence
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -36,10 +37,18 @@ class LlmClient {
                     setRequestProperty("Authorization", "Bearer $apiKey")
                 }
                 conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-                if (conn.responseCode != HttpURLConnection.HTTP_OK) return@withContext null
+                val code = conn.responseCode
+                if (code != HttpURLConnection.HTTP_OK) {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.w(TAG, "chat: HTTP $code from ${provider.id} model=${provider.model} url=${provider.endpoint} body=$err")
+                    return@withContext null
+                }
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                extractContent(text)
-            } catch (_: Exception) {
+                val content = extractContent(text)
+                if (content == null) Log.w(TAG, "chat: 200 but no content; raw=${text.take(500)}")
+                content
+            } catch (e: Exception) {
+                Log.w(TAG, "chat: exception talking to ${provider.id} at ${provider.endpoint}", e)
                 null // timeout, no network, TLS, malformed — all mean "unavailable", handled by the caller
             } finally {
                 conn?.disconnect()
@@ -69,5 +78,6 @@ class LlmClient {
     private companion object {
         const val TIMEOUT_MS = 8_000
         const val MAX_TOKENS = 256
+        const val TAG = "CruxAI"
     }
 }

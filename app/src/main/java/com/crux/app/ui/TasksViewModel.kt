@@ -20,6 +20,7 @@ import com.crux.app.intelligence.FuzzyResult
 import com.crux.app.intelligence.Intelligence
 import com.crux.app.intelligence.KnownProject
 import com.crux.app.intelligence.LlmAction
+import com.crux.app.intelligence.LlmOutcome
 import com.crux.app.intelligence.ParseField
 import com.crux.app.intelligence.ProjectRef
 import com.crux.app.intelligence.matchTask
@@ -147,17 +148,23 @@ class TasksViewModel(
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
             val rules = parse(text, today, knownProjects.value, dismissed)
-            // The LLM step runs only when AI is on and keyed; otherwise interpret() returns null and
-            // this is exactly the phase-2 behavior. AI never rewrites the user's words — for `add` it
-            // only fills structured fields the rules left blank; the destructive verbs match locally.
-            val action = intelligence.interpret(text, today, zone, knownProjects.value)
-            when (action) {
-                is LlmAction.Complete -> handleComplete(action.query)
-                is LlmAction.Delete -> handleDelete(action.query)
-                is LlmAction.Reschedule -> handleReschedule(action, today, zone)
-                is LlmAction.Query -> handleQuery(action.question, zone)
-                is LlmAction.Add -> addTask(text, rules, action, now, zone)
-                null -> addTask(text, rules, null, now, zone)
+            // The LLM step runs only when AI is on and keyed; when it is off (Inactive) this is exactly
+            // the phase-2 behavior. When it was meant to run but the call failed (Unavailable — bad
+            // quota, no network), we still file the line on rules but tell the user AI fell back, so a
+            // command that "did nothing" is never silent. AI never rewrites the user's words.
+            when (val outcome = intelligence.interpret(text, today, zone, knownProjects.value)) {
+                is LlmOutcome.Acted -> when (val action = outcome.action) {
+                    is LlmAction.Complete -> handleComplete(action.query)
+                    is LlmAction.Delete -> handleDelete(action.query)
+                    is LlmAction.Reschedule -> handleReschedule(action, today, zone)
+                    is LlmAction.Query -> handleQuery(action.question, zone)
+                    is LlmAction.Add -> addTask(text, rules, action, now, zone)
+                }
+                LlmOutcome.Unavailable -> {
+                    addTask(text, rules, null, now, zone)
+                    commandChannel.send(CommandOutcome.Message(Copy.AI_OFFLINE))
+                }
+                LlmOutcome.Inactive -> addTask(text, rules, null, now, zone)
             }
         }
     }

@@ -68,6 +68,11 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
     private val _scanned = MutableStateFlow(false)
     val scanned: StateFlow<Boolean> = _scanned.asStateFlow()
 
+    // True when the last scan could not reach the provider (quota/network) — the tab says so instead
+    // of pretending there was simply nothing to suggest.
+    private val _scanFailed = MutableStateFlow(false)
+    val scanFailed: StateFlow<Boolean> = _scanFailed.asStateFlow()
+
     // Rejected task ids, so "not now" keeps a suggestion from reappearing on the next scan this session.
     private val dismissed = mutableSetOf<Long>()
 
@@ -75,6 +80,7 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
         if (_scanning.value) return
         viewModelScope.launch {
             _scanning.value = true
+            _scanFailed.value = false
             try {
                 val zone = ZoneId.systemDefault()
                 val today = LocalDate.now(zone)
@@ -82,13 +88,17 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
                     .filter { it.projectId == null && it.id !in dismissed }
                 val known = projects.observeActive().first().map { KnownProject(it.id, it.name) }
                 val suggestions = intelligence.suggestProjects(inbox, known, today)
-                _proposals.value = suggestions.mapNotNull { s ->
-                    val task = inbox.firstOrNull { it.id == s.taskId } ?: return@mapNotNull null
-                    val project = known.firstOrNull { it.name.equals(s.projectName, ignoreCase = true) }
-                        ?: return@mapNotNull null
-                    ReviewProposal(task, project.id, project.name, s.reason)
+                if (suggestions == null) {
+                    _scanFailed.value = true // the provider could not be reached
+                } else {
+                    _proposals.value = suggestions.mapNotNull { s ->
+                        val task = inbox.firstOrNull { it.id == s.taskId } ?: return@mapNotNull null
+                        val project = known.firstOrNull { it.name.equals(s.projectName, ignoreCase = true) }
+                            ?: return@mapNotNull null
+                        ReviewProposal(task, project.id, project.name, s.reason)
+                    }
+                    _scanned.value = true
                 }
-                _scanned.value = true
             } finally {
                 _scanning.value = false
             }
