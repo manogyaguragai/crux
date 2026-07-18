@@ -74,6 +74,7 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.security.crypto) // phase 3: encrypted at-rest storage for the BYOK api key
 
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303") // real org.json for JVM unit tests (android stubs it)

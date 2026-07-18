@@ -7,12 +7,15 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.AppContainer
+import com.crux.app.intelligence.LlmProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.crux.app.data.NotificationPrefs
 import com.crux.app.data.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -49,6 +52,43 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setFontScale(scale: Float) = launch { settings.setFontScale(scale) }
 
     fun setHomeCount(n: Int) = launch { settings.setHomeCount(n) }
+
+    // --- AI assist (phase 3, BYOK) ---
+    private val keyStore = container.secureKeyStore
+    // Bumped after any key write so [hasKey] re-reads the (non-observable) encrypted store.
+    private val keyRefresh = MutableStateFlow(0)
+
+    val aiEnabled: StateFlow<Boolean> =
+        settings.aiEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val aiProvider: StateFlow<LlmProvider?> =
+        settings.aiProvider.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Whether the chosen provider has a key stored. Re-checked when the provider or a key changes. */
+    val hasKey: StateFlow<Boolean> =
+        combine(settings.aiProvider, keyRefresh) { provider, _ ->
+            provider != null && withContext(Dispatchers.IO) { keyStore.hasKey(provider.id) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Flip the master switch. Enabling with no key is harmless — the chain stays gated on the key too. */
+    fun setAiEnabled(on: Boolean) = launch { settings.setAiEnabled(on) }
+
+    /** Save a key for [provider], make it the active provider, and turn AI on in one step. */
+    fun saveKey(provider: LlmProvider, key: String) = launch {
+        if (key.isBlank()) return@launch
+        withContext(Dispatchers.IO) { keyStore.setKey(provider.id, key) }
+        settings.setAiProvider(provider)
+        settings.setAiEnabled(true)
+        keyRefresh.value += 1
+    }
+
+    /** Forget the active provider's key and switch AI off (nothing to call without a key). */
+    fun removeKey() = launch {
+        val provider = settings.aiProvider.first() ?: return@launch
+        withContext(Dispatchers.IO) { keyStore.removeKey(provider.id) }
+        settings.setAiEnabled(false)
+        keyRefresh.value += 1
+    }
 
     fun setMorning(on: Boolean, minutes: Int) = launch {
         settings.setMorning(on, minutes)

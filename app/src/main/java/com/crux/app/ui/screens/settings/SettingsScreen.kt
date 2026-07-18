@@ -21,15 +21,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,12 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.data.SettingsRepository
+import com.crux.app.intelligence.LlmProvider
 import com.crux.app.ui.Copy
 import com.crux.app.ui.SettingsViewModel
 import com.crux.app.ui.components.CruxIcons
@@ -79,6 +87,10 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
     val homeCount by vm.homeCount.collectAsStateWithLifecycle()
     val notif by vm.notifications.collectAsStateWithLifecycle()
     val archived by vm.archivedCount.collectAsStateWithLifecycle()
+    val aiEnabled by vm.aiEnabled.collectAsStateWithLifecycle()
+    val aiProvider by vm.aiProvider.collectAsStateWithLifecycle()
+    val aiHasKey by vm.hasKey.collectAsStateWithLifecycle()
+    var showKeySheet by remember { mutableStateOf(false) }
     var confirmingReset by remember { mutableStateOf(false) }
     var purgeArmed by remember { mutableStateOf(false) }
     var showMorningPicker by remember { mutableStateOf(false) }
@@ -192,6 +204,31 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
         )
         Spacer(Modifier.height(Dimens.GroupGap))
 
+        // intelligence (the optional AI layer; off by default). Toggling on with no key opens the
+        // BYOK sheet rather than latching the switch, so "on" always means "actually working".
+        SectionLabel(Copy.SETTINGS_AI)
+        ToggleRow(
+            title = Copy.SETTINGS_AI_ASSIST,
+            subtitle = if (aiHasKey && aiProvider != null) {
+                "${aiProvider!!.displayName} · ${Copy.AI_KEY_SET}"
+            } else {
+                Copy.SETTINGS_AI_ASSIST_SUB
+            },
+            checked = aiEnabled && aiHasKey,
+            onCheckedChange = { on ->
+                if (on && !aiHasKey) showKeySheet = true else vm.setAiEnabled(on)
+            },
+        )
+        if (aiHasKey) {
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            NavRow(
+                title = Copy.AI_KEY_TITLE,
+                subtitle = Copy.AI_KEY_REMOVE,
+                onClick = { showKeySheet = true },
+            )
+        }
+        Spacer(Modifier.height(Dimens.GroupGap))
+
         // data
         SectionLabel(Copy.SETTINGS_DATA)
         NavRow(
@@ -273,6 +310,104 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenHistory: () 
             onDismiss = { showWrapPicker = false },
             onConfirm = { minutes -> vm.setWrap(notif.wrapEnabled, minutes); showWrapPicker = false },
         )
+    }
+    if (showKeySheet) {
+        ApiKeySheet(
+            current = aiProvider,
+            hasKey = aiHasKey,
+            onSave = { provider, key -> vm.saveKey(provider, key); showKeySheet = false },
+            onRemove = { vm.removeKey(); showKeySheet = false },
+            onDismiss = { showKeySheet = false },
+        )
+    }
+}
+
+/**
+ * The bring-your-own-key sheet (phase 3). Rides at the bottom for thumb reach: pick a provider, paste
+ * the key, save. The key is never shown back once stored — the settings row just reads "key set". The
+ * paste field is masked by nothing on entry (the owner wants to confirm what they pasted), but it is
+ * write-only afterward: we never read it out of the encrypted store.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApiKeySheet(
+    current: LlmProvider?,
+    hasKey: Boolean,
+    onSave: (LlmProvider, String) -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val uriHandler = LocalUriHandler.current
+    var provider by remember { mutableStateOf(current ?: LlmProvider.GEMINI) }
+    var key by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Surface,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Dimens.ScreenMargin)
+                .padding(bottom = Dimens.GroupGap),
+        ) {
+            Text(Copy.AI_KEY_TITLE, style = CruxType.Body, color = InkHi)
+            Spacer(Modifier.height(Dimens.Unit * 2))
+            Text(Copy.AI_PROVIDER_PICK, style = CruxType.Eyebrow, color = InkLow)
+            Spacer(Modifier.height(Dimens.Unit * 2))
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
+                LlmProvider.entries.forEach { p ->
+                    Chip(label = p.displayName, selected = provider == p) { provider = p }
+                }
+            }
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            // the key field, styled like the omnibar's input well
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Dimens.RadiusShell))
+                    .background(LocalVoid.current)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f)) {
+                    if (key.isEmpty()) {
+                        Text(Copy.AI_KEY_PLACEHOLDER, style = CruxType.Body, color = InkLow)
+                    }
+                    BasicTextField(
+                        value = key,
+                        onValueChange = { key = it },
+                        textStyle = CruxType.Body.copy(color = InkHi),
+                        singleLine = true,
+                        cursorBrush = SolidColor(Garnet),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Spacer(Modifier.height(Dimens.Unit * 2))
+            Text(
+                text = "${provider.keyHint} · ${Copy.AI_KEY_GET}",
+                style = CruxType.Secondary,
+                color = InkMid,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { uriHandler.openUri(provider.keyUrl) },
+            )
+            Spacer(Modifier.height(Dimens.GroupGap))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (hasKey) {
+                    PillButton(Copy.AI_KEY_REMOVE, filled = false) { onRemove() }
+                    Spacer(Modifier.width(Dimens.Unit * 2))
+                }
+                PillButton(Copy.AI_KEY_SAVE, filled = true) {
+                    if (key.isNotBlank()) onSave(provider, key)
+                }
+            }
+        }
     }
 }
 

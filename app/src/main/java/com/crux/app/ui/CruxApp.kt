@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
@@ -31,16 +33,18 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -53,14 +57,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.crux.app.CruxApplication
 import com.crux.app.ui.components.CruxIcons
-import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.screens.detail.TaskDetailScreen
 import com.crux.app.ui.screens.history.HistoryScreen
 import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.screens.overdue.OverdueScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
+import com.crux.app.ui.screens.review.ReviewScreen
 import com.crux.app.ui.screens.settings.SettingsScreen
 import com.crux.app.ui.screens.stack.StackScreen
+import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Ember
@@ -69,6 +74,7 @@ import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
 import com.crux.app.ui.theme.Overlay
+import com.crux.app.ui.theme.Surface
 import kotlinx.coroutines.withTimeoutOrNull
 import com.crux.app.ui.theme.InkMid
 import com.crux.app.ui.theme.LocalVoid
@@ -97,12 +103,17 @@ fun CruxApp() {
                 container.taskRepository,
                 container.projectRepository,
                 container.settingsRepository,
+                container.intelligence,
             ),
         )
     val projectsVm: ProjectsViewModel =
         viewModel(factory = ProjectsViewModel.factory(container.projectRepository))
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
+    val reviewVm: ReviewViewModel = viewModel(factory = ReviewViewModel.factory(container))
     val snackbarHostState = remember { SnackbarHostState() }
+    // A pending AI command awaiting the user: a disambiguation pick or a destructive confirm. Plain
+    // messages (query answers, "not found") go straight to the snackbar instead.
+    var pendingCommand by remember { mutableStateOf<CommandOutcome?>(null) }
 
     // the 5 s undo window after a completion (copy bank: "done. undo")
     LaunchedEffect(vm) {
@@ -116,6 +127,19 @@ fun CruxApp() {
                 )
             }
             if (result == SnackbarResult.ActionPerformed) vm.undoLast()
+        }
+    }
+
+    // AI command-mode outcomes: a message snacks; anything needing a decision opens the command sheet.
+    LaunchedEffect(vm) {
+        vm.commandEvents.collect { outcome ->
+            when (outcome) {
+                is CommandOutcome.Message -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(outcome.text, duration = SnackbarDuration.Short)
+                }
+                else -> pendingCommand = outcome
+            }
         }
     }
 
@@ -141,7 +165,7 @@ fun CruxApp() {
                             CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings, onOpenOverdue = openOverdue)
                             CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
                             CruxTab.Projects -> ProjectsScreen(projectsVm, onOpenSettings = openSettings)
-                            else -> EmptyTabScreen(tab, onOpenSettings = openSettings)
+                            CruxTab.Review -> ReviewScreen(reviewVm, onOpenSettings = openSettings)
                         }
                     }
                 }
@@ -175,6 +199,10 @@ fun CruxApp() {
                     HistoryScreen(vm = historyVm, onBack = { nav.popBackStack() })
                 }
             }
+        }
+        // an AI command awaiting a decision opens a bottom sheet over everything
+        pendingCommand?.let { outcome ->
+            CommandSheet(outcome = outcome, vm = vm, onDismiss = { pendingCommand = null })
         }
         // the undo snackbar rides at the top so it never blocks the omnibar or capture
         SnackbarHost(
@@ -266,21 +294,95 @@ private fun RowScope.CruxTabItem(tab: CruxTab, selected: Boolean, onClick: () ->
     }
 }
 
-/** A themed empty surface for the not-yet-built tabs (review). Carries the shared header + gear. */
+/**
+ * The bottom sheet for an AI command that needs a decision (safety contract): disambiguate which task
+ * a fuzzy `query` meant, or confirm a destructive move/archive before it happens. Selecting from a pick
+ * list is itself the confirmation; an auto-matched single still gets an explicit confirm.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EmptyTabScreen(tab: CruxTab, onOpenSettings: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(LocalVoid.current)
-            .padding(horizontal = Dimens.ScreenMargin),
-    ) {
-        Box(Modifier.fillMaxWidth().height(Dimens.ScreenMargin))
-        TabHeader(title = tab.label, onOpenSettings = onOpenSettings)
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            tab.empty?.let {
-                Text(text = it, style = CruxType.Passage, color = InkMid, textAlign = TextAlign.Center)
+private fun CommandSheet(outcome: CommandOutcome, vm: TasksViewModel, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Overlay) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Dimens.ScreenMargin)
+                .padding(bottom = Dimens.GroupGap),
+        ) {
+            when (outcome) {
+                is CommandOutcome.Pick -> {
+                    Text(Copy.AI_PICK_TITLE, style = CruxType.Body, color = InkHi)
+                    Spacer(Modifier.height(Dimens.Unit * 2))
+                    outcome.candidates.forEach { task ->
+                        val interaction = remember { MutableInteractionSource() }
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(interactionSource = interaction, indication = null) {
+                                    vm.resolvePick(outcome, task); onDismiss()
+                                }
+                                .padding(vertical = Dimens.Unit * 2),
+                        ) {
+                            Text(task.title, style = CruxType.Body, color = InkHi)
+                        }
+                    }
+                }
+                is CommandOutcome.ConfirmArchive -> ConfirmBody(
+                    title = Copy.AI_ARCHIVE_CONFIRM_TITLE,
+                    subtitle = outcome.task.title,
+                    detail = null,
+                    confirmLabel = Copy.AI_ARCHIVE,
+                    onCancel = onDismiss,
+                    onConfirm = { vm.confirmArchive(outcome.task); onDismiss() },
+                )
+                is CommandOutcome.ConfirmReschedule -> ConfirmBody(
+                    title = Copy.AI_RESCHEDULE_TITLE,
+                    subtitle = outcome.task.title,
+                    detail = "from ${outcome.fromLabel} to ${outcome.toLabel}",
+                    confirmLabel = Copy.AI_RESCHEDULE_APPLY,
+                    onCancel = onDismiss,
+                    onConfirm = { vm.confirmReschedule(outcome.task, outcome.newDueAt, outcome.hasTime); onDismiss() },
+                )
+                is CommandOutcome.Message -> Unit // messages never reach the sheet
             }
         }
+    }
+}
+
+@Composable
+private fun ConfirmBody(
+    title: String,
+    subtitle: String,
+    detail: String?,
+    confirmLabel: String,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Text(title, style = CruxType.Body, color = InkHi)
+    Text(subtitle, style = CruxType.Secondary, color = InkMid)
+    if (detail != null) {
+        Spacer(Modifier.height(Dimens.Unit))
+        Text(detail, style = CruxType.Data, color = InkHi)
+    }
+    Spacer(Modifier.height(Dimens.GroupGap))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        SheetPill(Copy.SETTINGS_CANCEL, filled = false, onClick = onCancel)
+        Spacer(Modifier.width(Dimens.Unit * 2))
+        SheetPill(confirmLabel, filled = true, onClick = onConfirm)
+    }
+}
+
+@Composable
+private fun SheetPill(label: String, filled: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .background(if (filled) Garnet else Surface)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
+    ) {
+        Text(label, style = CruxType.Action, color = if (filled) Cream else InkMid)
     }
 }

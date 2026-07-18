@@ -6,9 +6,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.crux.app.intelligence.LlmProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 private val Context.settingsDataStore by preferencesDataStore(name = "crux_settings")
 
@@ -28,6 +32,12 @@ class SettingsRepository(private val context: Context) {
         val WRAP_ON = booleanPreferencesKey("notif_wrap_on")
         val WRAP_MIN = intPreferencesKey("notif_wrap_minutes")
         val HOME_COUNT = intPreferencesKey("home_count")
+        // phase 3 (the AI layer). The api key itself lives in SecureKeyStore, never here; DataStore
+        // only holds the non-secret switches and a per-day call counter for the budget guard.
+        val AI_ENABLED = booleanPreferencesKey("ai_enabled")
+        val AI_PROVIDER = stringPreferencesKey("ai_provider")
+        val AI_CALLS_DATE = stringPreferencesKey("ai_calls_date")   // ISO local date the counter is for
+        val AI_CALLS_COUNT = intPreferencesKey("ai_calls_count")
     }
 
     val deepMode: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.DEEP] ?: false }
@@ -43,6 +53,36 @@ class SettingsRepository(private val context: Context) {
     /** The three notification settings, with their two configurable times (minutes since midnight). */
     val notifications: Flow<NotificationPrefs> =
         context.settingsDataStore.data.map { it.toNotificationPrefs() }
+
+    /** Master switch for the optional AI layer. Off (the default) means the app is 100% deterministic. */
+    val aiEnabled: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.AI_ENABLED] ?: false }
+
+    /** The provider the owner picked, or null if none chosen yet. The key lives in SecureKeyStore. */
+    val aiProvider: Flow<LlmProvider?> =
+        context.settingsDataStore.data.map { LlmProvider.fromId(it[Keys.AI_PROVIDER]) }
+
+    suspend fun setAiEnabled(on: Boolean) {
+        context.settingsDataStore.edit { it[Keys.AI_ENABLED] = on }
+    }
+
+    suspend fun setAiProvider(provider: LlmProvider) {
+        context.settingsDataStore.edit { it[Keys.AI_PROVIDER] = provider.id }
+    }
+
+    /** How many LLM calls have gone out [today] (0 after a date rollover). The budget guard reads this. */
+    suspend fun aiCallsToday(today: LocalDate): Int {
+        val prefs = context.settingsDataStore.data.first()
+        return if (prefs[Keys.AI_CALLS_DATE] == today.toString()) prefs[Keys.AI_CALLS_COUNT] ?: 0 else 0
+    }
+
+    /** Count one LLM call against [today]'s budget, rolling the counter over at a new date. */
+    suspend fun recordAiCall(today: LocalDate) {
+        context.settingsDataStore.edit { prefs ->
+            val sameDay = prefs[Keys.AI_CALLS_DATE] == today.toString()
+            prefs[Keys.AI_CALLS_DATE] = today.toString()
+            prefs[Keys.AI_CALLS_COUNT] = (if (sameDay) prefs[Keys.AI_CALLS_COUNT] ?: 0 else 0) + 1
+        }
+    }
 
     suspend fun setDeepMode(on: Boolean) {
         context.settingsDataStore.edit { it[Keys.DEEP] = on }
@@ -87,6 +127,9 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_HOME_COUNT = 3          // the original hardcoded top-3
         const val HOME_COUNT_MIN = 1
         const val HOME_COUNT_MAX = 10
+        // Budget guard (intelligence.md): expected volume is 10-30 calls/day, far under any free tier.
+        // The cap is a runaway backstop, not a quota — past it the chain quietly reverts to rules-only.
+        const val AI_DAILY_CAP = 100
     }
 }
 

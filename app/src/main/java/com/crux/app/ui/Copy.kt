@@ -82,6 +82,36 @@ object Copy {
     const val NOTIF_WRAP = "wrap"
     const val NOTIF_WRAP_SUB = "an evening summary"
 
+    // intelligence / AI assist (phase 3). proposed, pending owner approval (chisel voice: lowercase,
+    // calm, no exclaims). BYOK: the owner picks one provider and pastes their own key.
+    const val SETTINGS_AI = "intelligence"
+    const val SETTINGS_AI_ASSIST = "ai assist"
+    const val SETTINGS_AI_ASSIST_SUB = "let a model fill what the rules miss. off by default."
+    const val AI_PROVIDER_PICK = "which provider"
+    const val AI_KEY_TITLE = "bring your own key"
+    const val AI_KEY_PLACEHOLDER = "paste your api key"
+    const val AI_KEY_SAVE = "save"
+    const val AI_KEY_GET = "get a key"
+    const val AI_KEY_REMOVE = "remove key"
+    const val AI_KEY_SET = "key set"
+    const val AI_KEY_NEEDED = "add a key to turn this on"
+
+    // command mode + review outcomes (phase 3). proposed, pending owner approval.
+    const val AI_NOT_FOUND = "couldn't find that task"
+    const val AI_PICK_TITLE = "which one"
+    const val AI_ARCHIVE_CONFIRM_TITLE = "archive this task"
+    const val AI_ARCHIVE = "archive"
+    const val AI_RESCHEDULE_TITLE = "move this task"
+    const val AI_RESCHEDULE_APPLY = "move it"
+    const val AI_OFFLINE = "offline. parsing by rules."
+    const val REVIEW_TITLE = "review"
+    const val REVIEW_AI_OFF = "turn on ai assist in settings to get suggestions."
+    const val REVIEW_SCAN = "sort the inbox"
+    const val REVIEW_SCANNING = "reading the inbox…"
+    const val REVIEW_FILE = "file it"
+    const val REVIEW_DISMISS = "not now"
+    const val REVIEW_EMPTY_INBOX = "inbox is clear. nothing to sort."
+
     // task detail (pushed screen). Field labels are lowercase eyebrows; proposed in phase 1
     // (logged in DECISIONS.log), pending owner approval.
     const val DETAIL_TITLE_PLACEHOLDER = "untitled"
