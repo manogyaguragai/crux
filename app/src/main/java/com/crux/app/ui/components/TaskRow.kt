@@ -3,6 +3,7 @@ package com.crux.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,16 +25,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.crux.app.domain.isOverdue
+import com.crux.app.domain.model.ParsedBy
 import com.crux.app.domain.model.Task
 import com.crux.app.domain.model.TaskStatus
+import com.crux.app.ui.theme.Blush
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Gold
 import com.crux.app.ui.theme.InkHi
 import com.crux.app.ui.theme.InkLow
@@ -146,16 +154,18 @@ fun TaskRow(
 }
 
 /**
- * The meta line under a title: priority (p1/p2/p4, the default p3 stays silent) and the due date,
- * coloured by urgency (overdue red, due-soon gold, else muted). Renders nothing when a task carries
- * neither, keeping bare rows clean. Fades with the title when the task is completing/done.
+ * The meta line under a title: priority (p1/p2/p4, the default p3 stays silent), the due date
+ * (coloured by urgency: overdue red, due-soon gold, else muted), and an `ai` tag when the model
+ * touched this task (blush tint + ember — no silent AI, ui-ux-decisions.md). Renders nothing when a
+ * task carries none of these, keeping bare rows clean. Fades with the title when completing/done.
  */
 @Composable
 private fun TaskMeta(task: Task, faded: Boolean) {
     val priorityLabel = when (task.priority) {
         1 -> "p1"; 2 -> "p2"; 4 -> "p4"; else -> null
     }
-    if (priorityLabel == null && task.dueAt == null) return
+    val showAi = task.parsedBy == ParsedBy.AI
+    if (priorityLabel == null && task.dueAt == null && !showAi) return
 
     Spacer(Modifier.height(2.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -190,6 +200,23 @@ private fun TaskMeta(task: Task, faded: Boolean) {
             }
             Text(text = label, style = CruxType.Data, color = color)
         }
+        if (showAi) {
+            if (priorityLabel != null || task.dueAt != null) Spacer(Modifier.width(Dimens.Unit * 2))
+            AiTag(faded = faded)
+        }
+    }
+}
+
+/** The blush `ai` tag: a small pill marking a task the model touched. Fades with the row. */
+@Composable
+private fun AiTag(faded: Boolean) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .background(if (faded) Color.Transparent else Blush)
+            .padding(horizontal = Dimens.Unit * 2, vertical = 1.dp),
+    ) {
+        Text(text = "ai", style = CruxType.Data, color = if (faded) InkLow else Ember)
     }
 }
 

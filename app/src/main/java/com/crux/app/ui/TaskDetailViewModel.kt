@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.ProjectRepository
 import com.crux.app.data.TaskRepository
+import com.crux.app.domain.model.ParsedBy
 import com.crux.app.domain.model.Project
 import com.crux.app.domain.model.RecurrenceType
 import com.crux.app.domain.model.Task
@@ -45,7 +46,15 @@ class TaskDetailViewModel(
         mutate { it.copy(title = trimmed) }
     }
 
-    fun setProject(projectId: Long?) = mutate { it.copy(projectId = projectId) }
+    /**
+     * Assign the project. Once the user picks it themselves, it is no longer the model's inference,
+     * so drop an AI attribution (the `· ai` chip + "parsed by ai" line stop claiming the model chose
+     * it — "tap to change" means it is yours now). A RULES/MANUAL attribution is left as-is.
+     */
+    fun setProject(projectId: Long?) = mutate {
+        val parsedBy = if (it.parsedBy == ParsedBy.AI) ParsedBy.MANUAL else it.parsedBy
+        it.copy(projectId = projectId, parsedBy = parsedBy)
+    }
 
     fun setPriority(priority: Int) = mutate { it.copy(priority = priority) }
 

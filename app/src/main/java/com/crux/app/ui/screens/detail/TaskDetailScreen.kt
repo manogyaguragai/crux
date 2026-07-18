@@ -50,9 +50,11 @@ import com.crux.app.domain.model.Task
 import com.crux.app.ui.Copy
 import com.crux.app.ui.TaskDetailViewModel
 import com.crux.app.ui.components.CruxIcons
+import com.crux.app.ui.theme.Blush
 import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
+import com.crux.app.ui.theme.Ember
 import com.crux.app.ui.theme.Garnet
 import com.crux.app.ui.theme.Hairline
 import com.crux.app.ui.theme.InkHi
@@ -143,12 +145,14 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
         )
         Spacer(Modifier.height(Dimens.GroupGap))
 
-        // project
+        // project (a model-inferred project wears the blush `ai` treatment; tap another chip to change)
+        val projectByAi = current.parsedBy == ParsedBy.AI && current.projectId != null
         Section(Copy.DETAIL_PROJECT) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
                 Chip(Copy.DETAIL_INBOX, selected = current.projectId == null) { vm.setProject(null) }
                 projects.forEach { p ->
-                    Chip(p.name, selected = current.projectId == p.id) { vm.setProject(p.id) }
+                    val selected = current.projectId == p.id
+                    Chip(p.name, selected = selected, ai = selected && projectByAi) { vm.setProject(p.id) }
                 }
             }
         }
@@ -307,21 +311,27 @@ private fun Section(label: String, content: @Composable () -> Unit) {
     Spacer(Modifier.height(Dimens.GroupGap))
 }
 
-/** A pill. Unselected: quiet outline. Selected: a neutral fill, or [accent] (p1's rationed garnet). */
+/**
+ * A pill. Unselected: quiet outline. Selected: a neutral fill, or [accent] (p1's rationed garnet).
+ * [ai] marks a model-inferred value: blush fill + ember text + an ` · ai` suffix (no silent AI).
+ */
 @Composable
 private fun Chip(
     label: String,
     selected: Boolean,
     accent: Color? = null,
+    ai: Boolean = false,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val bg = when {
+        selected && ai -> Blush
         selected && accent != null -> accent
         selected -> Overlay
         else -> Surface
     }
     val fg = when {
+        selected && ai -> Ember
         selected && accent != null -> Cream
         selected -> InkHi
         else -> InkMid
@@ -333,7 +343,7 @@ private fun Chip(
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
     ) {
-        Text(label, style = CruxType.Action, color = fg)
+        Text(if (selected && ai) "$label · ai" else label, style = CruxType.Action, color = fg)
     }
 }
 
