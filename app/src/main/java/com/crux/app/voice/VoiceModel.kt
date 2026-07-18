@@ -1,21 +1,27 @@
 package com.crux.app.voice
 
 /**
- * The two on-device Whisper models the user chooses between at the first-download prompt (phase 4
- * voice). Both run fully offline through sherpa-onnx; the choice is a size/speed vs richness trade,
- * not on/off quality. Display copy uses the calm positive framing decided in DECISIONS.log —
- * "lightweight" and "capable", never "less/more accurate".
+ * The on-device Whisper models the user can choose between (phase 4 voice). All are the MULTILINGUAL
+ * Whisper exports (not the English-only ".en" builds): the multilingual models were trained on ~99
+ * languages, so they recognise non-English proper nouns and place names (e.g. "Bhaktapur") that the
+ * ".en" models mangle — at the same download size. They run in English mode by default (Latin-script
+ * output) while still knowing those names; a full non-English dictation mode would set the recognizer's
+ * language, a later toggle.
  *
- * [approxMb] is the rounded sum of the three int8 files (encoder + decoder + tokens), shown in the
- * prompt so the user knows the one-time download size before committing.
+ * [LIGHT] and [CAPABLE] are the first-run choices; [HIGH] is a larger, more capable tier offered in
+ * settings for those who want the best on-device accuracy and have the space. [approxMb] is the rounded
+ * sum of the three int8 files, shown so the user knows the one-time download size before committing.
+ * Copy for the first two stays calm/positive ("lightweight"/"capable", never "less/more accurate");
+ * [HIGH] is the explicit opt-in "high accuracy" tier the owner asked for.
  */
 enum class VoiceModel(
-    val id: String,           // on-device subdir name + file prefix (e.g. "tiny.en")
-    private val repo: String, // huggingface repo hosting the sherpa-onnx int8 export
+    val id: String,           // on-device subdir name + file prefix (e.g. "tiny")
+    private val repo: String, // huggingface repo hosting the sherpa-onnx multilingual int8 export
     val approxMb: Int,
 ) {
-    LIGHT("tiny.en", "csukuangfj/sherpa-onnx-whisper-tiny.en", 100),
-    CAPABLE("base.en", "csukuangfj/sherpa-onnx-whisper-base.en", 150);
+    LIGHT("tiny", "csukuangfj/sherpa-onnx-whisper-tiny", 100),
+    CAPABLE("base", "csukuangfj/sherpa-onnx-whisper-base", 150),
+    HIGH("small", "csukuangfj/sherpa-onnx-whisper-small", 360);
 
     val encoderFile: String get() = "$id-encoder.int8.onnx"
     val decoderFile: String get() = "$id-decoder.int8.onnx"

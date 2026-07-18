@@ -66,6 +66,14 @@ class VoiceController(
     private var downloadJob: Job? = null
     private var recordJob: Job? = null
 
+    init {
+        // Resume a download the process death interrupted: a model with a leftover ".part" that is not
+        // yet ready. The app-scoped download coroutine dies with the process, so without this the bytes
+        // already fetched would sit orphaned until the user manually re-triggered. Resuming picks up
+        // from the partial rather than restarting the ~130 MB decoder.
+        VoiceModel.entries.firstOrNull { !store.isReady(it) && store.hasPartial(it) }?.let { download(it) }
+    }
+
     /**
      * Download [model] (resumable), warm the recognizer, then go Ready. A no-op if one is running. When
      * [replaceOthers] is set (settings "switch to…"), the other model's files are deleted once the new
@@ -132,6 +140,14 @@ class VoiceController(
         store.remove(model)
         _installed.value = store.installed()
         _state.value = if (_installed.value != null) VoiceState.Ready else VoiceState.NeedsModel
+    }
+
+    /** Hard reset: free the recognizer and delete every downloaded model. */
+    fun clearAll() {
+        speech?.close(); speech = null; speechModel = null
+        store.clearAll()
+        _installed.value = null
+        _state.value = VoiceState.NeedsModel
     }
 
     private fun ensureSpeech(model: VoiceModel): SpeechService {

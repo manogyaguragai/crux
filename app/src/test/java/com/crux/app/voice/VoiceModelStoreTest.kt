@@ -68,8 +68,18 @@ class VoiceModelStoreTest {
         val s = store()
         val p = s.pathsFor(VoiceModel.LIGHT)
         assertTrue(File(p.encoder).isAbsolute)
-        assertTrue(p.encoder.endsWith("voice/tiny.en/tiny.en-encoder.int8.onnx"))
-        assertTrue(p.decoder.endsWith("voice/tiny.en/tiny.en-decoder.int8.onnx"))
-        assertTrue(p.tokens.endsWith("voice/tiny.en/tiny.en-tokens.txt"))
+        assertTrue(p.encoder.endsWith("voice/tiny/tiny-encoder.int8.onnx"))
+        assertTrue(p.decoder.endsWith("voice/tiny/tiny-decoder.int8.onnx"))
+        assertTrue(p.tokens.endsWith("voice/tiny/tiny-tokens.txt"))
+    }
+
+    @Test fun `clearAll wipes every model at once`() {
+        val s = store()
+        writeModel(s, VoiceModel.LIGHT)
+        writeModel(s, VoiceModel.CAPABLE)
+        s.clearAll()
+        assertNull(s.installed())
+        assertFalse(s.isReady(VoiceModel.LIGHT))
+        assertFalse(s.isReady(VoiceModel.CAPABLE))
     }
 }

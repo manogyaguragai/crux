@@ -9,7 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.coroutines.coroutineContext
 
-/** Combined progress across a model's whole download: bytes so far / total bytes across all files. */
+/** Combined progress across a model's whole download: bytes so far out of an estimated total. */
 data class DownloadProgress(val bytes: Long, val total: Long) {
     val fraction: Float get() = if (total <= 0L) 0f else (bytes.toFloat() / total).coerceIn(0f, 1f)
 }
@@ -17,64 +17,49 @@ data class DownloadProgress(val bytes: Long, val total: Long) {
 /**
  * Downloads a [VoiceModel]'s three files into its store dir, one after another, reporting combined
  * progress. Each file streams to a ".part" sibling and is renamed to its final name only once
- * complete, so [VoiceModelStore.isReady] never sees a half file. Resumable: a ".part" left by a
- * dropped connection is continued with an HTTP Range header rather than restarting a ~130 MB decoder
- * from zero (the HF CDN answers Range requests with 206). Plain HttpURLConnection, matching the app's
- * no-extra-networking-dependency stance (see intelligence/LlmClient).
+ * complete, so [VoiceModelStore.isReady] never sees a half file — and "final file present" is also our
+ * completeness check when resuming, so no size query is needed. Resumable: a ".part" left by a dropped
+ * connection or a killed process is continued with an HTTP Range header rather than restarting a
+ * ~130 MB decoder from zero.
  *
- * Cancellable: the copy loop honours coroutine cancellation and leaves the ".part" in place so the
- * next attempt resumes. A failure mid-way throws; the caller surfaces it and can retry.
+ * Progress is sized against the model's known approximate byte count ([VoiceModel.approxMb]), NOT a
+ * separate HEAD request: HuggingFace serves these files via a signed CDN redirect that made a
+ * standalone HEAD from HttpURLConnection unreliable (it could come back with no length, pinning the
+ * bar at 0%) and added a multi-second stall before the first byte. The estimate is within a few
+ * percent of the real total, so the bar moves smoothly and simply snaps to 100% on completion.
+ *
+ * Cancellable: the copy loop honours coroutine cancellation and leaves the ".part" for a later resume.
  */
 class ModelDownloader(private val store: VoiceModelStore) {
 
     suspend fun download(model: VoiceModel, onProgress: (DownloadProgress) -> Unit): Unit =
         withContext(Dispatchers.IO) {
             val dir = store.dirFor(model).apply { mkdirs() }
-            // Learn each file's size first so the progress bar spans the whole set, not one file.
-            val sizes = model.files.associateWith { sizeOf(model.urlFor(it)) }
-            val total = sizes.values.sum()
+            val estTotal = model.approxMb * 1024L * 1024L
             var done = 0L
             for (file in model.files) {
                 val target = File(dir, file)
-                val size = sizes[file] ?: 0L
-                if (target.isFile && size > 0 && target.length() == size) { // already fully there
-                    done += size
-                    onProgress(DownloadProgress(done, total))
+                if (target.isFile) { // a prior run finished this one (rename happens only on completion)
+                    done += target.length()
+                    onProgress(DownloadProgress(done, estTotal))
                     continue
                 }
-                fetchOne(model.urlFor(file), target, done, total, onProgress)
-                done += target.length()
+                done += fetchOne(model.urlFor(file), target, done, estTotal, onProgress)
             }
-            onProgress(DownloadProgress(total, total))
+            onProgress(DownloadProgress(maxOf(done, estTotal), estTotal)) // land on 100%
         }
-
-    /** HEAD the URL for its Content-Length (following the HF redirect to the CDN). 0 if unknown. */
-    private fun sizeOf(url: String): Long {
-        val c = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "HEAD"
-            instanceFollowRedirects = true
-            connectTimeout = CONNECT_MS
-            readTimeout = READ_MS
-        }
-        return try {
-            c.connect()
-            c.contentLengthLong.coerceAtLeast(0L)
-        } finally {
-            c.disconnect()
-        }
-    }
 
     /**
-     * Stream one file to <target>.part (resuming if a partial is present), then rename to [target].
-     * Reports progress as [doneBefore] + this file's bytes, out of [total].
+     * Stream one file to <target>.part (resuming a leftover partial), then rename to [target]. Reports
+     * progress as [doneBefore] + this file's bytes, out of [estTotal]. Returns the file's byte size.
      */
     private suspend fun fetchOne(
         url: String,
         target: File,
         doneBefore: Long,
-        total: Long,
+        estTotal: Long,
         onProgress: (DownloadProgress) -> Unit,
-    ) {
+    ): Long {
         val part = File(target.parentFile, target.name + PART)
         var have = if (part.isFile) part.length() else 0L
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -84,9 +69,16 @@ class ModelDownloader(private val store: VoiceModelStore) {
             if (have > 0) setRequestProperty("Range", "bytes=$have-")
         }
         c.connect()
-        // If the server ignored our Range (200 rather than 206), restart the file from scratch.
+        // A stale/oversized partial makes the server answer 416; drop it and restart the file clean.
+        if (c.responseCode == 416) {
+            c.disconnect()
+            part.delete()
+            return fetchOne(url, target, doneBefore, estTotal, onProgress)
+        }
+        // If the server ignored our Range (200 rather than 206), start this file from scratch.
         val resuming = c.responseCode == HttpURLConnection.HTTP_PARTIAL
         if (!resuming) have = 0L
+        onProgress(DownloadProgress(doneBefore + have, estTotal)) // show the resumed position at once
         c.inputStream.use { input ->
             FileOutputStream(part, resuming).use { out ->
                 val buf = ByteArray(BUFFER)
@@ -95,7 +87,7 @@ class ModelDownloader(private val store: VoiceModelStore) {
                     coroutineContext.ensureActive() // cancellation leaves .part for a later resume
                     out.write(buf, 0, read)
                     have += read
-                    onProgress(DownloadProgress(doneBefore + have, total))
+                    onProgress(DownloadProgress(doneBefore + have, estTotal))
                     read = input.read(buf)
                 }
             }
@@ -106,6 +98,7 @@ class ModelDownloader(private val store: VoiceModelStore) {
             part.copyTo(target, overwrite = true)
             part.delete()
         }
+        return target.length()
     }
 
     private companion object {

@@ -121,9 +121,10 @@ object Copy {
     const val SETTINGS_VOICE_NONE = "not set up yet"
     const val SETTINGS_VOICE_LIGHT_READY = "lightweight model ready"
     const val SETTINGS_VOICE_CAPABLE_READY = "capable model ready"
-    const val SETTINGS_VOICE_SETUP = "set up"
-    const val SETTINGS_VOICE_UPGRADE = "switch to capable"
+    const val SETTINGS_VOICE_HIGH_READY = "high-accuracy model ready"
+    const val SETTINGS_VOICE_SWITCH = "switch to" // "switch to capable", "switch to high accuracy"
     const val SETTINGS_VOICE_REMOVE = "remove"
+    const val VOICE_HIGH = "high accuracy" // the larger opt-in tier (small multilingual, ~360 mb)
 
     // command mode + review outcomes (phase 3). proposed, pending owner approval.
     const val AI_NOT_FOUND = "couldn't find that task"

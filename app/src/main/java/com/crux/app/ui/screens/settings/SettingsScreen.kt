@@ -654,9 +654,11 @@ private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
 
 /**
  * Voice model management (phase 4). Reads the shared [VoiceController] so a download started from the
- * omnibar shows its progress here too. Not set up → offer the lightweight/capable download; a light
- * model present → offer switching up (which reclaims the old files once the new one is in) or removing;
- * a capable model present → offer removing. Calm, positive framing throughout (never "accuracy").
+ * omnibar shows its progress here too. Offers a pill to get (or switch to) every model that is not the
+ * current one, plus "remove" when one is installed — switching downloads the new model first and only
+ * then reclaims the old files, so a failed switch never leaves the user with no voice. All models are
+ * multilingual (they recognise non-English place names); [VoiceModel.HIGH] is the larger opt-in
+ * high-accuracy tier the owner asked to expose here.
  */
 @Composable
 private fun VoiceRow(voice: VoiceController) {
@@ -669,6 +671,7 @@ private fun VoiceRow(voice: VoiceController) {
         else -> when (installed) {
             VoiceModel.LIGHT -> Copy.SETTINGS_VOICE_LIGHT_READY
             VoiceModel.CAPABLE -> Copy.SETTINGS_VOICE_CAPABLE_READY
+            VoiceModel.HIGH -> Copy.SETTINGS_VOICE_HIGH_READY
             null -> Copy.SETTINGS_VOICE_NONE
         }
     }
@@ -678,25 +681,29 @@ private fun VoiceRow(voice: VoiceController) {
         val busy = state is VoiceState.Downloading || state is VoiceState.Preparing
         if (!busy) {
             Spacer(Modifier.height(Dimens.Unit * 3))
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2)) {
-                when (installed) {
-                    null -> {
-                        PillButton(Copy.VOICE_LIGHT, filled = false) { voice.download(VoiceModel.LIGHT) }
-                        PillButton(Copy.VOICE_CAPABLE, filled = false) { voice.download(VoiceModel.CAPABLE) }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Unit * 2),
+                verticalArrangement = Arrangement.spacedBy(Dimens.Unit * 2),
+            ) {
+                VoiceModel.entries.filter { it != installed }.forEach { model ->
+                    val label = if (installed == null) voiceLabel(model)
+                    else "${Copy.SETTINGS_VOICE_SWITCH} ${voiceLabel(model)}"
+                    PillButton(label, filled = false) {
+                        voice.download(model, replaceOthers = installed != null)
                     }
-                    VoiceModel.LIGHT -> {
-                        PillButton(Copy.SETTINGS_VOICE_UPGRADE, filled = false) {
-                            voice.download(VoiceModel.CAPABLE, replaceOthers = true)
-                        }
-                        PillButton(Copy.SETTINGS_VOICE_REMOVE, filled = false) { voice.remove(VoiceModel.LIGHT) }
-                    }
-                    VoiceModel.CAPABLE -> {
-                        PillButton(Copy.SETTINGS_VOICE_REMOVE, filled = false) { voice.remove(VoiceModel.CAPABLE) }
-                    }
+                }
+                installed?.let { current ->
+                    PillButton(Copy.SETTINGS_VOICE_REMOVE, filled = false) { voice.remove(current) }
                 }
             }
         }
     }
+}
+
+private fun voiceLabel(model: VoiceModel): String = when (model) {
+    VoiceModel.LIGHT -> Copy.VOICE_LIGHT
+    VoiceModel.CAPABLE -> Copy.VOICE_CAPABLE
+    VoiceModel.HIGH -> Copy.VOICE_HIGH
 }
 
 @Composable

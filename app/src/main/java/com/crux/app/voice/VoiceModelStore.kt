@@ -24,6 +24,10 @@ class VoiceModelStore(private val baseDir: File) {
     fun installed(): VoiceModel? =
         VoiceModel.entries.sortedByDescending { it.approxMb }.firstOrNull { isReady(it) }
 
+    /** A leftover ".part" means a download for this model was interrupted and can be resumed. */
+    fun hasPartial(model: VoiceModel): Boolean =
+        dirFor(model).listFiles()?.any { it.name.endsWith(".part") } == true
+
     fun pathsFor(model: VoiceModel): ModelPaths {
         val dir = dirFor(model)
         return ModelPaths(
@@ -36,6 +40,12 @@ class VoiceModelStore(private val baseDir: File) {
     /** Delete a model's files (settings "remove", or clearing a half-finished download). */
     fun remove(model: VoiceModel) {
         dirFor(model).deleteRecursively()
+    }
+
+    /** Delete every downloaded model (hard reset) — the whole voice dir, so orphans from an old
+     *  model id are reclaimed too. */
+    fun clearAll() {
+        File(baseDir, VOICE).deleteRecursively()
     }
 
     private companion object {

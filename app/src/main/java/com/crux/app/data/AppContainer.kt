@@ -7,7 +7,6 @@ import com.crux.app.intelligence.Intelligence
 import com.crux.app.intelligence.LlmClient
 import com.crux.app.notifications.NotificationScheduler
 import com.crux.app.voice.VoiceController
-import com.crux.app.voice.VoiceModel
 import com.crux.app.voice.VoiceModelStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,8 +77,7 @@ class AppContainer(context: Context) {
             database.clearAllTables()
             secureKeyStore.clear() // the stored api key is data too; the reset must wipe it
             captureQueue.clear()   // drop any pending/finished queued captures
-            // downloaded voice models are on-device data too; "brand new" must reclaim their ~100 MB+.
-            VoiceModel.entries.forEach { voiceController.remove(it) }
+            voiceController.clearAll() // downloaded voice models are on-device data too; reclaim them all
         }
         settingsRepository.clear()
     }
