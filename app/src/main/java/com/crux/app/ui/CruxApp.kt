@@ -74,6 +74,7 @@ import com.crux.app.ui.screens.detail.TaskDetailScreen
 import com.crux.app.ui.screens.history.HistoryScreen
 import com.crux.app.ui.screens.home.HomeScreen
 import com.crux.app.ui.screens.overdue.OverdueScreen
+import com.crux.app.ui.screens.projects.ProjectDetailScreen
 import com.crux.app.ui.screens.projects.ProjectsScreen
 import com.crux.app.ui.screens.review.ReviewScreen
 import com.crux.app.ui.screens.settings.SettingsScreen
@@ -182,7 +183,7 @@ fun CruxApp() {
                         when (tab) {
                             CruxTab.Home -> HomeScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings, onOpenOverdue = openOverdue)
                             CruxTab.Stack -> StackScreen(vm, onOpenTask = openTask, onOpenSettings = openSettings)
-                            CruxTab.Projects -> ProjectsScreen(projectsVm, onOpenSettings = openSettings)
+                            CruxTab.Projects -> ProjectsScreen(projectsVm, onOpenSettings = openSettings, onOpenProject = { id -> nav.navigate("project/$id") })
                             CruxTab.Review -> ReviewScreen(reviewVm, onOpenSettings = openSettings)
                         }
                     }
@@ -200,6 +201,16 @@ fun CruxApp() {
                         ),
                     )
                     TaskDetailScreen(vm = detailVm, onBack = { nav.popBackStack() })
+                }
+                composable(
+                    route = "project/{projectId}",
+                    arguments = listOf(navArgument("projectId") { type = NavType.LongType }),
+                ) { entry ->
+                    val id = entry.arguments?.getLong("projectId") ?: return@composable
+                    val projectDetailVm: ProjectDetailViewModel = viewModel(
+                        factory = ProjectDetailViewModel.factory(container.projectRepository, id),
+                    )
+                    ProjectDetailScreen(vm = projectDetailVm, onBack = { nav.popBackStack() })
                 }
                 composable("overdue") {
                     OverdueScreen(vm = vm, onBack = { nav.popBackStack() }, onOpenTask = openTask)

@@ -158,7 +158,7 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
                 val today = LocalDate.now(zone)
                 val inbox = tasks.observeOpen().first()
                     .filter { it.projectId == null && it.id !in dismissed }
-                val known = projects.observeActive().first().map { KnownProject(it.id, it.name) }
+                val known = projects.observeActive().first().map { KnownProject(it.id, it.name, it.description) }
                 val suggestions = intelligence.suggestProjects(inbox, known, today)
                 if (suggestions == null) {
                     _scanFailed.value = true // the provider could not be reached

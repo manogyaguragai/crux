@@ -73,6 +73,7 @@ object Copy {
     const val STACK_VIEW_STACK = "stack"
     const val STACK_VIEW_WEEK = "week"
     const val EMPTY_WEEK = "nothing due this week."
+    const val WEEK_DAY_EMPTY = "nothing on this day." // the selected day-strip cell has no tasks
     const val STACK_INBOX = "inbox" // the catch-all group header, always last (data-model.md)
     // week view (mockup 03): the gcal sync tag on synced events, and the month handoff line at the
     // bottom — anything past the 7-day ceiling is google calendar's job (chisel voice, arrows per mockup).
@@ -86,6 +87,13 @@ object Copy {
     const val PROJECT_DUPLICATE = "a project with that name exists."
     const val PROJECTS_EDIT = "edit"
     const val PROJECTS_DONE = "done"
+    // project detail (pushed from a tapped project row). the description feeds the AI's task
+    // assignment, so the copy frames it as context, not decoration. chisel voice: lowercase, calm.
+    const val PROJECT_DETAIL_EYEBROW = "what it holds"
+    const val PROJECT_NAME_LABEL = "name"
+    const val PROJECT_DESC_LABEL = "what is this project"
+    const val PROJECT_DESC_PLACEHOLDER = "a line or two on what belongs here…"
+    const val PROJECT_DESC_HINT = "the assistant reads this to decide which project a new task belongs to."
 
     // settings (pushed screen). proposed in phase 1, pending owner approval.
     const val SETTINGS_TITLE = "settings"
@@ -125,6 +133,10 @@ object Copy {
     const val NOTIF_DUE_SUB = "when a task's time arrives"
     const val NOTIF_WRAP = "wrap"
     const val NOTIF_WRAP_SUB = "an evening summary"
+    // shown when android has notifications blocked for the app (the runtime dialog was dismissed):
+    // the toggles below can't surface anything until this is enabled in system settings.
+    const val NOTIF_BLOCKED = "notifications are off in android"
+    const val NOTIF_BLOCKED_SUB = "tap to enable them in system settings, or nothing below will show"
 
     // intelligence / AI assist (phase 3). proposed, pending owner approval (chisel voice: lowercase,
     // calm, no exclaims). BYOK: the owner picks one provider and pastes their own key.
@@ -142,6 +154,18 @@ object Copy {
     const val AI_KEY_SAVED_LABEL = "saved key"
     const val AI_KEY_USE = "use this key"
     const val AI_KEY_REPLACE = "paste a new key below to replace it"
+    // command words + editable capture prompt (phase 4). the words gate whether a line is read as a
+    // command; the prompt is the exact system text sent every call, editable to refine over time.
+    const val AI_WORDS_TITLE = "command words"
+    const val AI_WORDS_SUB = "a line is a command only when it starts with one of these. otherwise it's a new task."
+    const val AI_WORDS_PLACEHOLDER = "tick, delete, reschedule, postpone…"
+    const val AI_WORDS_HINT = "comma-separated. leave \"complete\" and \"finish\" out so \"complete math\" adds a task."
+    const val AI_PROMPT_TITLE = "capture prompt"
+    const val AI_PROMPT_SUB = "the exact instructions sent on every ai call. edit to refine it over time."
+    const val AI_PROMPT_HINT = "{TODAY}, {PROJECTS}, and {COMMAND_WORDS} are filled in automatically each call."
+    const val AI_PROMPT_PLACEHOLDER = "the system prompt sent to the model…"
+    const val AI_EDIT_SAVE = "save"
+    const val AI_EDIT_RESET = "reset to default"
 
     // voice model management (phase 4). shown in the intelligence section of settings.
     const val SETTINGS_VOICE = "voice"
