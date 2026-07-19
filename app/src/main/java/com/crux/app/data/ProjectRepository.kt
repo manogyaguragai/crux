@@ -48,6 +48,17 @@ class ProjectRepository(
     }
 
     /**
+     * Set a project's free-text description (what it is), fed to the LLM for task assignment. Trimmed;
+     * an empty string clears it. Always succeeds — description carries no uniqueness invariant.
+     */
+    suspend fun setDescription(project: Project, description: String) {
+        projectDao.update(project.copy(description = description.trim()))
+    }
+
+    /** One project by id (the project detail screen loads its editable copy through this). */
+    suspend fun getById(id: Long): Project? = projectDao.getById(id)
+
+    /**
      * Remove a project (soft archive; data-model.md). Its tasks fall loose to the inbox first
      * (projectId -> null), so nothing is left pointing at a project that is no longer active and the
      * stack + detail agree. The archived row lingers until a settings "clear archived" purge; until

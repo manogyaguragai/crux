@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.crux.app.intelligence.LlmPrompt
 import com.crux.app.intelligence.LlmProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -38,6 +39,9 @@ class SettingsRepository(private val context: Context) {
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val AI_CALLS_DATE = stringPreferencesKey("ai_calls_date")   // ISO local date the counter is for
         val AI_CALLS_COUNT = intPreferencesKey("ai_calls_count")
+        // phase 4: the owner-editable capture prompt and command trigger words. Absent = use defaults.
+        val AI_SYSTEM_PROMPT = stringPreferencesKey("ai_system_prompt")
+        val AI_COMMAND_WORDS = stringPreferencesKey("ai_command_words")
     }
 
     val deepMode: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.DEEP] ?: false }
@@ -60,6 +64,36 @@ class SettingsRepository(private val context: Context) {
     /** The provider the owner picked, or null if none chosen yet. The key lives in SecureKeyStore. */
     val aiProvider: Flow<LlmProvider?> =
         context.settingsDataStore.data.map { LlmProvider.fromId(it[Keys.AI_PROVIDER]) }
+
+    /**
+     * The capture system prompt sent on every LLM call. Owner-editable; a blank/absent value falls
+     * back to [LlmPrompt.DEFAULT_SYSTEM_PROMPT] so a cleared field can never brick the AI path.
+     */
+    val aiSystemPrompt: Flow<String> = context.settingsDataStore.data.map {
+        it[Keys.AI_SYSTEM_PROMPT]?.takeIf { s -> s.isNotBlank() } ?: LlmPrompt.DEFAULT_SYSTEM_PROMPT
+    }
+
+    /** Command trigger words: a line is a command only when it begins with one of these (editable). */
+    val aiCommandWords: Flow<String> = context.settingsDataStore.data.map {
+        it[Keys.AI_COMMAND_WORDS]?.takeIf { s -> s.isNotBlank() } ?: LlmPrompt.DEFAULT_COMMAND_WORDS
+    }
+
+    suspend fun setAiSystemPrompt(prompt: String) {
+        context.settingsDataStore.edit { it[Keys.AI_SYSTEM_PROMPT] = prompt }
+    }
+
+    /** Restore the built-in capture prompt (the "reset to default" button). */
+    suspend fun resetAiSystemPrompt() {
+        context.settingsDataStore.edit { it.remove(Keys.AI_SYSTEM_PROMPT) }
+    }
+
+    suspend fun setAiCommandWords(words: String) {
+        context.settingsDataStore.edit { it[Keys.AI_COMMAND_WORDS] = words }
+    }
+
+    suspend fun resetAiCommandWords() {
+        context.settingsDataStore.edit { it.remove(Keys.AI_COMMAND_WORDS) }
+    }
 
     suspend fun setAiEnabled(on: Boolean) {
         context.settingsDataStore.edit { it[Keys.AI_ENABLED] = on }

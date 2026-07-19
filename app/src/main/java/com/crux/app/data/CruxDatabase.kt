@@ -19,10 +19,11 @@ import com.crux.app.domain.model.Task
  * No fallbackToDestructiveMigration, ever: losing user data silently is not an option.
  *
  * v2 adds tasks.remindOffsetMinutes (nullable): a per-task reminder offset before a timed due.
+ * v3 adds projects.description (TEXT, default ''): free-text context fed to the LLM for assignment.
  */
 @Database(
     entities = [Project::class, Task::class, CompletionLog::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,9 +42,16 @@ abstract class CruxDatabase : RoomDatabase() {
             }
         }
 
+        /** 2 -> 3: add projects.description (non-null, default '') — free-text project context for the LLM. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE projects ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun build(context: Context): CruxDatabase =
             Room.databaseBuilder(context, CruxDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }
