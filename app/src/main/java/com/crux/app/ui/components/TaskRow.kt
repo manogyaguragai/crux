@@ -73,6 +73,7 @@ fun TaskRow(
     completing: Boolean = false,
     onToggle: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
+    onEventClick: (() -> Unit)? = null,
 ) {
     val done = task.status == TaskStatus.DONE
     // one signal drives the whole ceremony: struck once the hold is tapped (completing) and stays
@@ -107,11 +108,24 @@ fun TaskRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (isEvent) {
+            // a synced event: the gold glyph opens the event in google calendar when a handler is given
+            // (the week view wires this); elsewhere it stays a plain marker.
+            val eventInteraction = remember { MutableInteractionSource() }
             Icon(
                 imageVector = CruxIcons.Calendar,
                 contentDescription = null,
                 tint = Gold,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier
+                    .size(20.dp)
+                    .then(
+                        if (onEventClick != null) {
+                            Modifier.clickable(
+                                interactionSource = eventInteraction,
+                                indication = null,
+                                onClick = onEventClick,
+                            )
+                        } else Modifier,
+                    ),
             )
         } else {
             HoldCheckbox(checked = struck, onToggle = onToggle)

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.crux.app.data.AppContainer
+import com.crux.app.intelligence.LlmPrompt
 import com.crux.app.intelligence.LlmProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -80,6 +81,23 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private suspend fun readMaskedKeys(): Map<String, String> = withContext(Dispatchers.IO) {
         LlmProvider.entries.mapNotNull { p -> keyStore.keyFor(p.id)?.let { p.id to maskKey(it) } }.toMap()
     }
+
+    // --- the editable capture prompt + command trigger words (phase 4) ---
+
+    val aiSystemPrompt: StateFlow<String> =
+        settings.aiSystemPrompt.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5_000), LlmPrompt.DEFAULT_SYSTEM_PROMPT,
+        )
+
+    val aiCommandWords: StateFlow<String> =
+        settings.aiCommandWords.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5_000), LlmPrompt.DEFAULT_COMMAND_WORDS,
+        )
+
+    fun setAiSystemPrompt(prompt: String) = launch { settings.setAiSystemPrompt(prompt) }
+    fun resetAiSystemPrompt() = launch { settings.resetAiSystemPrompt() }
+    fun setAiCommandWords(words: String) = launch { settings.setAiCommandWords(words) }
+    fun resetAiCommandWords() = launch { settings.resetAiCommandWords() }
 
     /** Flip the master switch. Enabling with no key is harmless — the chain stays gated on the key too. */
     fun setAiEnabled(on: Boolean) = launch { settings.setAiEnabled(on) }

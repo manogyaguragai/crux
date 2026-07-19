@@ -18,8 +18,11 @@ import java.time.ZoneId
  * (intelligence/ParserGoldenTest) — the phase-2 spec.
  */
 
-/** A project the parser may match a `#token` against, by case-insensitive prefix. */
-data class KnownProject(val id: Long, val name: String)
+/**
+ * A project the parser may match a `#token` against, by case-insensitive prefix. [description] is
+ * free-text context (may be blank) shown to the LLM for smarter assignment; the rules ignore it.
+ */
+data class KnownProject(val id: Long, val name: String, val description: String = "")
 
 /**
  * The five extractable fields. A dismissed chip suppresses its field, so the token's words fall

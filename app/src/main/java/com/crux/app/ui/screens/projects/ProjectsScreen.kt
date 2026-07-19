@@ -75,7 +75,7 @@ import kotlinx.coroutines.delay
  * controls inside an edit mode, not drag (ui-ux-decisions.md: drag is polish, not spine).
  */
 @Composable
-fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
+fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit, onOpenProject: (Long) -> Unit) {
     val projects by vm.active.collectAsStateWithLifecycle()
     val counts by vm.counts.collectAsStateWithLifecycle()
     val totalOpen by vm.totalOpen.collectAsStateWithLifecycle()
@@ -148,6 +148,7 @@ fun ProjectsScreen(vm: ProjectsViewModel, onOpenSettings: () -> Unit) {
                         editing = editing,
                         isFirst = index == 0,
                         isLast = index == projects.lastIndex,
+                        onOpen = { onOpenProject(project.id) },
                         onRename = { vm.rename(project, it) },
                         onArchive = { vm.archive(project) },
                         onMoveUp = { vm.moveUp(project) },
@@ -237,16 +238,25 @@ private fun ProjectRow(
     editing: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
+    onOpen: () -> Unit,
     onRename: (String) -> Unit,
     onArchive: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // a non-edit row opens the project's detail (name + description) on tap; edit mode keeps its
+    // rename field + controls, so the row is inert to tap there.
+    val rowInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = Dimens.RowMinHeight),
+            .heightIn(min = Dimens.RowMinHeight)
+            .then(
+                if (!editing) {
+                    Modifier.clickable(interactionSource = rowInteraction, indication = null, onClick = onOpen)
+                } else Modifier,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // the rank chip (mockup .rchip): R1 the only filled chip, R2 an ember outline, R3+ a hairline
