@@ -33,12 +33,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
+import com.crux.app.util.CalendarLauncher
 import com.crux.app.ui.TasksViewModel
 import com.crux.app.ui.components.TabHeader
 import com.crux.app.ui.components.TaskRow
 import com.crux.app.domain.model.TaskStatus
+import com.crux.app.domain.weekLabel
 import com.crux.app.ui.theme.Blush
 import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
@@ -160,35 +163,58 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
     onOpenTask: (Long) -> Unit,
     vm: TasksViewModel,
 ) {
+    val context = LocalContext.current
+    // the day-strip drives the list: tapping a cell filters below to just that day. defaults to today.
+    var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
     if (week.isEmpty()) {
         EmptyBody(Copy.EMPTY_WEEK)
     } else {
         val cascade = remember { SessionMotion.claim("stack-week") }
-        // the 7-cell day-strip always shows the coming week, whether or not those days hold tasks.
-        DayStrip(loaded = week.map { it.date }.toSet())
+        // the 7-cell day-strip always shows the coming week, whether or not those days hold tasks;
+        // it stays fully visible so the user can switch days — only the list below filters.
+        DayStrip(
+            loaded = week.map { it.date }.toSet(),
+            selected = selectedDate,
+            onSelect = { selectedDate = it },
+        )
+        // weekDays omits empty days, so the selected day may be absent from [week].
+        val day = week.firstOrNull { it.date == selectedDate }
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-            var flat = 0
-            week.forEachIndexed { dayIndex, day ->
-                item(key = "day-${day.date}") {
-                    GroupHeader(
-                        title = day.label,
-                        first = dayIndex == 0,
-                        trailing = "${day.tasks.size}",
-                        modifier = Modifier.animateItem(
-                            placementSpec = spring(
-                                dampingRatio = Motion.ReorderDamping,
-                                visibilityThreshold = IntOffset.VisibilityThreshold,
-                            ),
+            item(key = "day-header-$selectedDate") {
+                GroupHeader(
+                    title = day?.label ?: weekLabel(selectedDate, LocalDate.now(ZoneId.systemDefault())),
+                    first = true,
+                    trailing = "${day?.tasks?.size ?: 0}",
+                    modifier = Modifier.animateItem(
+                        placementSpec = spring(
+                            dampingRatio = Motion.ReorderDamping,
+                            visibilityThreshold = IntOffset.VisibilityThreshold,
                         ),
+                    ),
+                )
+            }
+            if (day == null) {
+                item(key = "day-empty-$selectedDate") {
+                    Text(
+                        text = Copy.WEEK_DAY_EMPTY,
+                        style = CruxType.Passage,
+                        color = InkMid,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Dimens.Unit * 3),
                     )
                 }
-                val base = flat
+            } else {
                 itemsIndexed(items = day.tasks, key = { _, t -> t.id }) { i, task ->
                     TaskRow(
                         task = task,
                         completing = task.id in completing,
                         onToggle = { vm.complete(task) },
                         onOpen = { onOpenTask(task.id) },
+                        // a synced event's gold glyph opens that event in google calendar.
+                        onEventClick = task.calendarEventId?.let { evId ->
+                            { CalendarLauncher.openEvent(context, evId) }
+                        },
                         modifier = Modifier
                             .animateItem(
                                 fadeOutSpec = tween(Motion.VanishMs, easing = Motion.EaseOut),
@@ -197,13 +223,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
                                     visibilityThreshold = IntOffset.VisibilityThreshold,
                                 ),
                             )
-                            .cascadeIn(base + i, cascade),
+                            .cascadeIn(i, cascade),
                     )
                 }
-                flat += day.tasks.size
             }
         }
-        // gcal handoff (mockup .gcal): a quiet, static invitation to the full month in google calendar.
+        // gcal handoff (mockup .gcal): the full-month jump-off, opening google calendar at the day in view.
+        val handoffInteraction = remember { MutableInteractionSource() }
         Text(
             text = Copy.WEEK_HANDOFF,
             style = CruxType.Data,
@@ -211,6 +237,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(interactionSource = handoffInteraction, indication = null) {
+                    CalendarLauncher.openDay(context, selectedDate)
+                }
                 .padding(vertical = Dimens.Unit * 3),
         )
     }
@@ -222,7 +251,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.WeekList(
  * is a solid garnet chip in cream; the rest are hairline-bordered ink-low.
  */
 @Composable
-private fun DayStrip(loaded: Set<LocalDate>) {
+private fun DayStrip(loaded: Set<LocalDate>, selected: LocalDate, onSelect: (LocalDate) -> Unit) {
     val today = LocalDate.now(ZoneId.systemDefault())
     Row(
         Modifier
@@ -233,35 +262,48 @@ private fun DayStrip(loaded: Set<LocalDate>) {
         for (offset in 0..6) {
             val date = today.plusDays(offset.toLong())
             val isToday = offset == 0
+            val isSelected = date == selected
             val hasTasks = date in loaded
             val weekday = date.format(DayStripFmt).lowercase(Locale.ENGLISH)
+            val cellInteraction = remember(date) { MutableInteractionSource() }
+            // selection wins: the picked day is the solid garnet chip. today, when not selected,
+            // keeps a quiet garnet-hairline marker; the rest sit in plain hairline.
+            val cellBackground: Modifier = when {
+                isSelected -> Modifier.background(Garnet)
+                isToday -> Modifier.border(
+                    Dimens.HairlineWidth,
+                    Garnet,
+                    RoundedCornerShape(Dimens.Unit * 3.25f),
+                )
+                else -> Modifier.border(
+                    Dimens.HairlineWidth,
+                    Hairline,
+                    RoundedCornerShape(Dimens.Unit * 3.25f),
+                )
+            }
+            val textColor = when {
+                isSelected -> Cream
+                isToday -> Garnet
+                else -> InkLow
+            }
             Column(
                 Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(Dimens.Unit * 3.25f))
-                    .then(
-                        if (isToday) {
-                            Modifier.background(Garnet)
-                        } else {
-                            Modifier.border(
-                                Dimens.HairlineWidth,
-                                Hairline,
-                                RoundedCornerShape(Dimens.Unit * 3.25f),
-                            )
-                        },
-                    )
+                    .clickable(interactionSource = cellInteraction, indication = null) { onSelect(date) }
+                    .then(cellBackground)
                     .padding(vertical = Dimens.Unit * 1.5f),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = weekday,
                     style = CruxType.Data,
-                    color = if (isToday) Cream else InkLow,
+                    color = textColor,
                 )
                 Text(
                     text = "${date.dayOfMonth}",
                     style = CruxType.Subhead,
-                    color = if (isToday) Cream else InkLow,
+                    color = textColor,
                 )
                 Spacer(Modifier.height(Dimens.Unit * 0.5f))
                 Box(
@@ -271,7 +313,7 @@ private fun DayStrip(loaded: Set<LocalDate>) {
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             if (hasTasks) {
-                                if (isToday) Cream else InkLow
+                                if (isSelected) Cream else InkLow
                             } else {
                                 Color.Transparent
                             },

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -108,7 +109,11 @@ fun SettingsScreen(
     val aiProvider by vm.aiProvider.collectAsStateWithLifecycle()
     val aiHasKey by vm.hasKey.collectAsStateWithLifecycle()
     val savedKeys by vm.savedKeys.collectAsStateWithLifecycle()
+    val aiCommandWords by vm.aiCommandWords.collectAsStateWithLifecycle()
+    val aiSystemPrompt by vm.aiSystemPrompt.collectAsStateWithLifecycle()
     var showKeySheet by remember { mutableStateOf(false) }
+    var showWordsSheet by remember { mutableStateOf(false) }
+    var showPromptSheet by remember { mutableStateOf(false) }
     var confirmingReset by remember { mutableStateOf(false) }
     var purgeArmed by remember { mutableStateOf(false) }
     var showMorningPicker by remember { mutableStateOf(false) }
@@ -154,6 +159,17 @@ fun SettingsScreen(
         ) {
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+    // On Android 13+ a notification that never displays means the OS permission is off. Once the
+    // runtime request has been dismissed the dialog won't show again, so we offer a direct jump to
+    // the system notification settings — the always-works escape hatch when a toggle "does nothing".
+    val notifBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+    fun openSystemNotificationSettings() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        runCatching { context.startActivity(intent) }
     }
 
     Column(
@@ -211,6 +227,14 @@ fun SettingsScreen(
 
         // notifications (times are configurable below)
         SectionLabel(Copy.SETTINGS_NOTIFICATIONS)
+        if (notifBlocked) {
+            DangerRow(
+                title = Copy.NOTIF_BLOCKED,
+                subtitle = Copy.NOTIF_BLOCKED_SUB,
+                onClick = { openSystemNotificationSettings() },
+            )
+            Spacer(Modifier.height(Dimens.Unit * 4))
+        }
         NotifRow(
             title = Copy.NOTIF_MORNING,
             subtitle = Copy.NOTIF_MORNING_SUB,
@@ -263,6 +287,20 @@ fun SettingsScreen(
                 title = Copy.AI_KEY_TITLE,
                 subtitle = Copy.AI_KEY_REMOVE,
                 onClick = { showKeySheet = true },
+            )
+            // command words: gate what counts as a command (fixes "complete math assignment" adding a task).
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            NavRow(
+                title = Copy.AI_WORDS_TITLE,
+                subtitle = Copy.AI_WORDS_SUB,
+                onClick = { showWordsSheet = true },
+            )
+            // the full capture prompt, editable + resettable, to refine assignment/behaviour over time.
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            NavRow(
+                title = Copy.AI_PROMPT_TITLE,
+                subtitle = Copy.AI_PROMPT_SUB,
+                onClick = { showPromptSheet = true },
             )
         }
         // voice (phase 4): the on-device model lives here — set up, switch, or remove. Independent of
@@ -370,6 +408,95 @@ fun SettingsScreen(
             onRemove = { provider -> vm.removeKey(provider) }, // stay open so the sheet reflects the removal
             onDismiss = { showKeySheet = false },
         )
+    }
+    if (showWordsSheet) {
+        AiTextEditSheet(
+            title = Copy.AI_WORDS_TITLE,
+            hint = Copy.AI_WORDS_HINT,
+            placeholder = Copy.AI_WORDS_PLACEHOLDER,
+            initial = aiCommandWords,
+            minLines = 2,
+            onSave = { vm.setAiCommandWords(it); showWordsSheet = false },
+            onReset = { vm.resetAiCommandWords(); showWordsSheet = false },
+            onDismiss = { showWordsSheet = false },
+        )
+    }
+    if (showPromptSheet) {
+        AiTextEditSheet(
+            title = Copy.AI_PROMPT_TITLE,
+            hint = Copy.AI_PROMPT_HINT,
+            placeholder = Copy.AI_PROMPT_PLACEHOLDER,
+            initial = aiSystemPrompt,
+            minLines = 8,
+            onSave = { vm.setAiSystemPrompt(it); showPromptSheet = false },
+            onReset = { vm.resetAiSystemPrompt(); showPromptSheet = false },
+            onDismiss = { showPromptSheet = false },
+        )
+    }
+}
+
+/**
+ * A bottom-sheet text editor for the two AI-tuning fields: command words and the capture prompt.
+ * Prefilled with the current value; Reset restores the built-in default, Save writes the edit. The
+ * well caps its height and scrolls, so even the full multi-line prompt stays thumb-reachable.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AiTextEditSheet(
+    title: String,
+    hint: String,
+    placeholder: String,
+    initial: String,
+    minLines: Int,
+    onSave: (String) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var text by remember { mutableStateOf(initial) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Surface,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Dimens.ScreenMargin)
+                .padding(bottom = Dimens.GroupGap),
+        ) {
+            Text(title, style = CruxType.Body, color = InkHi)
+            Spacer(Modifier.height(Dimens.Unit * 2))
+            Text(hint, style = CruxType.Secondary, color = InkMid)
+            Spacer(Modifier.height(Dimens.Unit * 3))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 120.dp, max = 360.dp)
+                    .clip(RoundedCornerShape(Dimens.RadiusShell))
+                    .background(LocalVoid.current)
+                    .padding(horizontal = 16.dp, vertical = 15.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                if (text.isEmpty()) {
+                    Text(placeholder, style = CruxType.Body, color = InkLow)
+                }
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    textStyle = CruxType.Body.copy(color = InkHi),
+                    cursorBrush = SolidColor(Garnet),
+                    minLines = minLines,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(Modifier.height(Dimens.GroupGap))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                PillButton(Copy.AI_EDIT_RESET, filled = false) { onReset() }
+                Spacer(Modifier.weight(1f))
+                PillButton(Copy.AI_EDIT_SAVE, filled = true) { onSave(text) }
+            }
+        }
     }
 }
 
