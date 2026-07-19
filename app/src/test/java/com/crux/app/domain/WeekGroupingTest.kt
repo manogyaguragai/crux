@@ -31,7 +31,7 @@ class WeekGroupingTest {
         val week = groupWeek(tasks, today, zone)
         assertEquals(2, week.size) // only the two non-empty days
         assertEquals(today, week[0].date)
-        assertEquals("today", week[0].label)
+        assertEquals("mon 12 · today", week[0].label)
         assertEquals(1, week[0].tasks.size)
         assertEquals(today.plusDays(2), week[1].date)
         assertEquals(2, week[1].tasks.size)
@@ -50,10 +50,10 @@ class WeekGroupingTest {
         assertEquals(4L, week[0].tasks.single().id)
     }
 
-    @Test fun `labels today and tomorrow specially, weekday otherwise`() {
-        assertEquals("today", weekLabel(today, today))
-        assertEquals("tomorrow", weekLabel(today.plusDays(1), today))
-        assertEquals("wednesday", weekLabel(today.plusDays(2), today))
+    @Test fun `labels short weekday and day-of-month, with a today tail`() {
+        assertEquals("mon 12 · today", weekLabel(today, today))
+        assertEquals("tue 13", weekLabel(today.plusDays(1), today))
+        assertEquals("wed 14", weekLabel(today.plusDays(2), today))
     }
 
     @Test fun `within a day, timed tasks sort by clock then all-day, ties by priority`() {
