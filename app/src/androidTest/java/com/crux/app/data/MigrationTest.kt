@@ -47,6 +47,25 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate2To3_addsProjectDescriptionColumn() {
+        // seed a v2 project, then migrate and confirm the row survives with the new '' description.
+        helper.createDatabase(TEST_DB, 2).apply {
+            execSQL(
+                "INSERT INTO projects (id, name, rank, archived, createdAt) " +
+                    "VALUES (1, 'growbydata', 1, 0, 0)",
+            )
+            close()
+        }
+        helper.runMigrationsAndValidate(TEST_DB, 3, true, CruxDatabase.MIGRATION_2_3).apply {
+            query("SELECT description FROM projects WHERE id = 1").use { c ->
+                assert(c.moveToFirst())
+                assert(c.getString(0) == "")
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "crux-migration-test"
     }

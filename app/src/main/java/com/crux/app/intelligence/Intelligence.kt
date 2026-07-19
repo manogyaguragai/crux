@@ -96,7 +96,9 @@ class Intelligence(
             return LlmOutcome.Unavailable
         }
         val key = withContext(Dispatchers.IO) { keys.keyFor(provider.id) } ?: return LlmOutcome.Inactive
-        val messages = LlmPrompt.captureMessages(input, today, zone, projects)
+        val template = settings.aiSystemPrompt.first()
+        val commandWords = settings.aiCommandWords.first()
+        val messages = LlmPrompt.captureMessages(input, today, zone, projects, template, commandWords)
         settings.recordAiCall(today) // count the send: quota is consumed whether or not the reply parses
         enter()
         val result = try { client.chat(provider, key, messages) } finally { exit() }

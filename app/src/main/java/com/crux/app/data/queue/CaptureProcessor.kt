@@ -45,7 +45,7 @@ class CaptureProcessor(
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        val known = projects.observeActive().first().map { KnownProject(it.id, it.name) }
+        val known = projects.observeActive().first().map { KnownProject(it.id, it.name, it.description) }
         val rules = parse(text, today, known, dismissed)
         return when (val outcome = intelligence.interpret(text, today, zone, known)) {
             is LlmOutcome.Acted -> when (val action = outcome.action) {
