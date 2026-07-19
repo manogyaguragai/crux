@@ -3,8 +3,10 @@ package com.crux.app.ui.screens.projects
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -27,12 +29,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crux.app.ui.Copy
 import com.crux.app.ui.ProjectDetailViewModel
+import com.crux.app.ui.theme.Cream
 import com.crux.app.ui.theme.CruxType
 import com.crux.app.ui.theme.Dimens
 import com.crux.app.ui.theme.Garnet
@@ -52,6 +56,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProjectDetailScreen(vm: ProjectDetailViewModel, onBack: () -> Unit) {
     val project by vm.project.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
     var showDuplicate by remember { mutableStateOf(false) }
 
     LaunchedEffect(vm) { vm.errors.collect { showDuplicate = true } }
@@ -140,6 +145,34 @@ fun ProjectDetailScreen(vm: ProjectDetailViewModel, onBack: () -> Unit) {
         }
         Spacer(Modifier.height(Dimens.Unit * 2))
         Text(Copy.PROJECT_DESC_HINT, style = CruxType.Secondary, color = InkMid)
+
+        // explicit save (both fields also commit on blur; enter inserts a newline in the description).
+        val dirty = nameDraft.trim() != p.name || descDraft.trim() != p.description
+        if (dirty) {
+            Spacer(Modifier.height(Dimens.Unit * 4))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                SaveButton {
+                    vm.rename(nameDraft)
+                    vm.setDescription(descDraft)
+                    focusManager.clearFocus()
+                }
+            }
+        }
         Spacer(Modifier.height(Dimens.GroupGap))
+    }
+}
+
+/** A filled garnet "save" pill — the explicit commit for the name + description fields. */
+@Composable
+private fun SaveButton(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .background(Garnet)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
+    ) {
+        Text(Copy.SAVE, style = CruxType.Action, color = Cream)
     }
 }

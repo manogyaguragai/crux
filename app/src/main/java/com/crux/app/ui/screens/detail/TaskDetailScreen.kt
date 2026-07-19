@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,6 +88,7 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
     val projects by vm.projects.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     val current = task
+    val focusManager = LocalFocusManager.current
 
     var titleDraft by remember(current?.id) { mutableStateOf(current?.title ?: "") }
     var notesDraft by remember(current?.id) { mutableStateOf(current?.notes ?: "") }
@@ -276,6 +278,16 @@ fun TaskDetailScreen(vm: TaskDetailViewModel, onBack: () -> Unit) {
             )
         }
 
+        // an explicit save for the free-text fields (title + notes commit on blur/leave too, but the
+        // multi-line notes take enter as a newline, so the button is the clear "done editing" action).
+        val textDirty = titleDraft.trim() != current.title || notesDraft.trim() != (current.notes ?: "")
+        if (textDirty) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                SaveButton { commitText(); focusManager.clearFocus() }
+            }
+            Spacer(Modifier.height(Dimens.Unit * 3))
+        }
+
         // provenance line (numbers-first, mono): how this task arrived.
         Text(formatProvenance(current, zone), style = CruxType.Data, color = InkLow)
         Spacer(Modifier.height(Dimens.GroupGap))
@@ -407,6 +419,21 @@ private fun Chip(
             .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
     ) {
         Text(if (selected && ai) "$label · ai" else label, style = CruxType.Action, color = fg)
+    }
+}
+
+/** A filled garnet "save" pill — the explicit commit for the free-text fields. */
+@Composable
+private fun SaveButton(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Dimens.RadiusPill))
+            .background(Garnet)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dimens.Unit * 4, vertical = Dimens.Unit * 2),
+    ) {
+        Text(Copy.SAVE, style = CruxType.Action, color = Cream)
     }
 }
 

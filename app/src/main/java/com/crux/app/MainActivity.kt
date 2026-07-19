@@ -60,11 +60,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // cold-start splash: the stones assemble over the void, then fade to the app (180 ms,
-                // per the loader spec). A launch is a wait over 400 ms, so the loader earns its place.
+                // cold-start splash: the stones assemble over the void while the app composes behind
+                // it, then the whole splash cross-fades away to reveal the loaded app. The floor lets a
+                // full assembly + settle play; the 500 ms fade is the smooth hand-off the owner asked for.
                 var ready by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
-                    delay(1100)
+                    delay(1400)
                     ready = true
                 }
                 Box(Modifier.fillMaxSize()) {
@@ -72,7 +73,7 @@ class MainActivity : ComponentActivity() {
                     AnimatedVisibility(
                         visible = !ready,
                         enter = EnterTransition.None,
-                        exit = fadeOut(tween(180)),
+                        exit = fadeOut(tween(500)),
                     ) {
                         CruxSplash()
                     }

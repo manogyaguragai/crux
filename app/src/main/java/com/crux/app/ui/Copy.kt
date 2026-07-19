@@ -59,6 +59,10 @@ object Copy {
     const val SNACKBAR_DONE = "done."
     const val SNACKBAR_UNDO = "undo"
 
+    // generic save affordance for the long free-text fields (title/notes, project description) —
+    // these commit on blur but a visible button makes it explicit (enter inserts a newline there).
+    const val SAVE = "save"
+
     // empty states (copy bank, verbatim)
     const val EMPTY_HOME = "clear trail. nothing overdue."
     // overdue pile (pushed screen behind the home nudge). proposed, pending owner approval.

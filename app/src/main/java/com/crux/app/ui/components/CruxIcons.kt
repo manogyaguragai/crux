@@ -122,6 +122,13 @@ object CruxIcons {
         }.build()
     }
 
+    /** send: submit the omnibar line — an up-arrow (the task rises into the stack). viewBox 24. */
+    val Send: ImageVector by lazy {
+        ImageVector.Builder("send", 24.dp, 24.dp, 24f, 24f).apply {
+            stroke("M12 19V6M6 12l6-6 6 6", join = StrokeJoin.Round)
+        }.build()
+    }
+
     /** calendar: the gold event glyph on timed week rows (mockup .evglyph). viewBox 24. */
     val Calendar: ImageVector by lazy {
         ImageVector.Builder("calendar", 24.dp, 24.dp, 24f, 24f).apply {

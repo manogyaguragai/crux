@@ -28,10 +28,11 @@ import com.crux.app.ui.theme.Oxblood
 /**
  * The loading mark (02-design/logo/crux-loader.html): the three stones assembling. Bottom to top,
  * 240 ms each, 140 ms apart, ease cubic-bezier(.23,1,.32,1); the garnet stone's landing compresses
- * the stack to scaleY .97 and recovers, and a garnet bloom breathes behind. One 2.6 s loop.
+ * the stack to scaleY .97 and recovers. Just the stones here — the bloom lives full-screen behind them
+ * in [CruxSplash] so it can fade smoothly to the void with no box edge.
  *
- * Drawn (never a GIF): three animated pebble offsets + one settle scale + one bloom breath. All timing
- * is expressed as milliseconds on a 2600 ms keyframe track, matching the HTML spec's percentages.
+ * Drawn (never a GIF): three animated pebble offsets + one settle scale on a 2600 ms keyframe track,
+ * matching the HTML spec's percentages.
  */
 @Composable
 fun CruxLoader(modifier: Modifier = Modifier) {
@@ -82,28 +83,9 @@ fun CruxLoader(modifier: Modifier = Modifier) {
         1f at 749
     }), label = "settle")
 
-    // the bloom breath behind the stack (5 s ease-in-out, .86 → .94), driven as a separate loop.
-    val bloom by t.animateFloat(0.86f, 0.94f, infiniteRepeatable(
-        animation = tween(2500), repeatMode = RepeatMode.Reverse,
-    ), label = "bloom")
-
     Canvas(modifier) {
         val u = size.minDimension / 48f // 48-unit view space → px
         fun px(v: Float) = v * u
-
-        // bloom: radial garnet glow anchored low (50% 86%), matching the mockup's gradient stops.
-        drawRect(
-            brush = Brush.radialGradient(
-                colorStops = arrayOf(
-                    0f to Oxblood.copy(alpha = 0.50f),
-                    0.5f to Oxblood.copy(alpha = 0.14f),
-                    1f to Color.Transparent,
-                ),
-                center = Offset(size.width * 0.5f, size.height * 0.86f),
-                radius = size.minDimension * 0.72f,
-            ),
-            alpha = bloom,
-        )
 
         // the stack, compressed about its bottom edge during the settle.
         scale(scaleX = 1f, scaleY = settle, pivot = Offset(px(24f), px(39.7f))) {
@@ -130,17 +112,44 @@ fun CruxLoader(modifier: Modifier = Modifier) {
 }
 
 /**
- * The cold-start splash: the loader centred on the void ground. Shown briefly on launch and faded out
- * once the app is ready (the "show only for waits over 400 ms" rule — a launch qualifies).
+ * The cold-start splash: the stones centred on the void, over a wide garnet bloom that breathes and
+ * fades smoothly to the void (a full-screen radial gradient, not a boxed one — no rectangle edge). The
+ * whole surface is opaque void so it covers the app while it loads behind, then the caller fades it out.
  */
 @Composable
 fun CruxSplash(modifier: Modifier = Modifier) {
+    val t = rememberInfiniteTransition(label = "splash-bloom")
+    // the bloom breathes gently (a slow swell), the mark's signature glow.
+    val breath by t.animateFloat(
+        initialValue = 0.82f,
+        targetValue = 0.98f,
+        animationSpec = infiniteRepeatable(tween(2500), RepeatMode.Reverse),
+        label = "breath",
+    )
     Box(
         modifier
             .fillMaxSize()
             .background(LocalVoid.current),
         contentAlignment = Alignment.Center,
     ) {
-        CruxLoader(Modifier.size(128.dp))
+        Canvas(Modifier.fillMaxSize()) {
+            // one wide radial glow, centred just under the stones, fading fully to transparent well
+            // inside the screen so there is never a visible edge — a smooth gradient, not a box.
+            val center = Offset(size.width * 0.5f, size.height * 0.54f)
+            drawRect(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.0f to Oxblood.copy(alpha = 0.55f),
+                        0.35f to Oxblood.copy(alpha = 0.20f),
+                        0.7f to Oxblood.copy(alpha = 0.05f),
+                        1.0f to Color.Transparent,
+                    ),
+                    center = center,
+                    radius = size.minDimension * 0.95f,
+                ),
+                alpha = breath,
+            )
+        }
+        CruxLoader(Modifier.size(132.dp))
     }
 }

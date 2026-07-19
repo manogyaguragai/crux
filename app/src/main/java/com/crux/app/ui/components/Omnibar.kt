@@ -187,7 +187,8 @@ fun Omnibar(
                     .clip(RoundedCornerShape(Dimens.RadiusShell))
                     .background(Raised)
                     .padding(horizontal = 16.dp, vertical = 15.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                // bottom-aligned so the +/send/mic sit by the last line as the field grows taller.
+                verticalAlignment = Alignment.Bottom,
             ) {
                 Icon(
                     imageVector = CruxIcons.Add,
@@ -216,12 +217,21 @@ fun Omnibar(
                             }
                         },
                         textStyle = CruxType.Body.copy(color = InkHi),
-                        singleLine = true,
+                        // grows with the line (up to 6 lines, then scrolls) so a long voice take is not
+                        // cut off; the keyboard's action is "send", and enter submits rather than no-ops.
+                        singleLine = false,
+                        maxLines = 6,
                         cursorBrush = SolidColor(Garnet),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { submit() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                // a send button so a line (especially a voice take) can be submitted without opening
+                // the keyboard — appears only when there is something to send, left of the mic.
+                if (text.isNotBlank()) {
+                    Spacer(Modifier.width(8.dp))
+                    SendButton(onClick = { submit() })
                 }
                 if (voice != null && voiceState != null) {
                     Spacer(Modifier.width(8.dp))
@@ -264,6 +274,25 @@ private fun Bloom(listening: Boolean, modifier: Modifier = Modifier) {
                 )
             },
     )
+}
+
+/** The send button on the omnibar's right edge: a garnet up-arrow that submits the current line. */
+@Composable
+private fun SendButton(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .size(40.dp)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = CruxIcons.Send,
+            contentDescription = "send",
+            tint = Garnet,
+            modifier = Modifier.size(22.dp),
+        )
+    }
 }
 
 /**
